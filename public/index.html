@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SkyBlock 수익 계산기</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
+      background: #0d1117;
+      color: #c9d1d9;
+      min-height: 100vh;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #161b22 0%, #1a2332 100%);
+      border-bottom: 1px solid #21262d;
+      padding: 18px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .header-left h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      background: linear-gradient(90deg, #58a6ff, #a371f7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .header-left .subtitle {
+      font-size: 0.72rem;
+      color: #8b949e;
+      margin-top: 2px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    #lastUpdated {
+      font-size: 0.72rem;
+      color: #8b949e;
+    }
+
+    .refresh-btn {
+      background: #21262d;
+      border: 1px solid #30363d;
+      color: #8b949e;
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: all 0.2s;
+    }
+
+    .refresh-btn:hover {
+      color: #c9d1d9;
+      border-color: #58a6ff;
+    }
+
+    .refresh-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* API Key Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .modal-overlay.hidden { display: none; }
+
+    .modal {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 28px 32px;
+      max-width: 440px;
+      width: 90%;
+    }
+
+    .modal h2 {
+      font-size: 1.1rem;
+      margin-bottom: 8px;
+      color: #e6edf3;
+    }
+
+    .modal p {
+      font-size: 0.82rem;
+      color: #8b949e;
+      margin-bottom: 18px;
+      line-height: 1.5;
+    }
+
+    .modal a { color: #58a6ff; text-decoration: none; }
+    .modal a:hover { text-decoration: underline; }
+
+    .key-input-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .key-input {
+      flex: 1;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 8px 12px;
+      color: #c9d1d9;
+      font-size: 0.85rem;
+      font-family: monospace;
+    }
+
+    .key-input:focus {
+      outline: none;
+      border-color: #58a6ff;
+    }
+
+    .save-btn {
+      background: #238636;
+      border: 1px solid #2ea043;
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .save-btn:hover { background: #2ea043; }
+
+    .key-status {
+      font-size: 0.75rem;
+      margin-top: 10px;
+      color: #8b949e;
+    }
+
+    .key-badge {
+      background: #1c2128;
+      border: 1px solid #30363d;
+      border-radius: 5px;
+      padding: 3px 10px;
+      font-size: 0.72rem;
+      color: #8b949e;
+      cursor: pointer;
+    }
+
+    .key-badge.set { border-color: #2ea04340; color: #3fb950; }
+
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 24px 16px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: #161b22;
+      border: 1px solid #21262d;
+      border-radius: 10px;
+      padding: 4px;
+      margin-bottom: 16px;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 10px 12px;
+      background: none;
+      border: none;
+      border-radius: 7px;
+      color: #8b949e;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab.active {
+      background: #21262d;
+      color: #58a6ff;
+    }
+
+    .tab:hover:not(.active) {
+      color: #c9d1d9;
+      background: #1c2128;
+    }
+
+    .controls {
+      background: #161b22;
+      border: 1px solid #21262d;
+      border-radius: 10px;
+      padding: 14px 20px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .control-label {
+      font-size: 0.82rem;
+      color: #8b949e;
+      white-space: nowrap;
+    }
+
+    .fortune-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+      min-width: 200px;
+    }
+
+    input[type="range"] {
+      flex: 1;
+      accent-color: #58a6ff;
+      cursor: pointer;
+    }
+
+    .fortune-value {
+      min-width: 42px;
+      text-align: right;
+      font-weight: 700;
+      color: #58a6ff;
+      font-size: 0.9rem;
+    }
+
+    .multiplier-badge {
+      background: #1c2128;
+      border: 1px solid #30363d;
+      border-radius: 5px;
+      padding: 3px 8px;
+      font-size: 0.75rem;
+      color: #a371f7;
+      white-space: nowrap;
+    }
+
+    .table-header {
+      display: grid;
+      grid-template-columns: 36px 1fr 100px 110px 130px 120px;
+      padding: 8px 16px;
+      font-size: 0.72rem;
+      color: #6e7681;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 4px;
+    }
+
+    .table-header span:not(:first-child):not(:nth-child(2)) {
+      text-align: right;
+    }
+
+    .item-row {
+      display: grid;
+      grid-template-columns: 36px 1fr 100px 110px 130px 120px;
+      align-items: center;
+      padding: 13px 16px;
+      background: #161b22;
+      border: 1px solid #21262d;
+      border-radius: 8px;
+      margin-bottom: 5px;
+      transition: border-color 0.15s, transform 0.15s;
+    }
+
+    .item-row:hover {
+      border-color: #388bfd40;
+      transform: translateX(2px);
+    }
+
+    .rank {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #6e7681;
+    }
+
+    .item-name {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.88rem;
+      font-weight: 500;
+    }
+
+    .item-icon {
+      font-size: 1.15em;
+      width: 22px;
+      text-align: center;
+    }
+
+    .price-cell {
+      text-align: right;
+      font-size: 0.82rem;
+      color: #e3b341;
+    }
+
+    .drops-cell {
+      text-align: right;
+      font-size: 0.82rem;
+      color: #8b949e;
+    }
+
+    .coins-cell {
+      text-align: right;
+    }
+
+    .coins-value {
+      font-size: 0.98rem;
+      font-weight: 700;
+      color: #3fb950;
+    }
+
+    .bar-cell {
+      padding-left: 12px;
+    }
+
+    .bar-track {
+      height: 7px;
+      background: #21262d;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .no-price {
+      color: #484f58;
+      font-size: 0.78rem;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 64px 20px;
+      color: #8b949e;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 24px;
+      height: 24px;
+      border: 3px solid #21262d;
+      border-top-color: #58a6ff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 12px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .error-box {
+      background: #1a1a1f;
+      border: 1px solid #f8514940;
+      border-radius: 8px;
+      padding: 20px;
+      color: #f85149;
+      text-align: center;
+      font-size: 0.88rem;
+    }
+
+    .top1 { color: #f0c040; }
+    .top2 { color: #c0c0c0; }
+    .top3 { color: #cd7f32; }
+
+    @media (max-width: 640px) {
+      .table-header,
+      .item-row {
+        grid-template-columns: 32px 1fr 100px 120px;
+      }
+      .table-header span:nth-child(4),
+      .table-header span:nth-child(6),
+      .drops-cell,
+      .bar-cell {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-left">
+      <h1>⛏️ SkyBlock 수익 계산기</h1>
+      <div class="subtitle">Hypixel SkyBlock 베이자 실시간 가격 기반</div>
+    </div>
+    <div class="header-right">
+      <span id="lastUpdated">-</span>
+      <button class="key-badge" id="keyBadge" onclick="openKeyModal()">🔑 API 키 없음</button>
+      <button class="refresh-btn" id="refreshBtn" onclick="refreshData()">🔄 새로고침</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="tabs">
+      <button class="tab active" data-tab="farming" onclick="switchTab(this, 'farming')">🌾 농사</button>
+      <button class="tab" data-tab="mining" onclick="switchTab(this, 'mining')">⛏️ 광질</button>
+      <button class="tab" data-tab="logging" onclick="switchTab(this, 'logging')">🪓 벌목</button>
+    </div>
+
+    <div class="controls">
+      <span class="control-label" id="fortuneLabel">농사 행운</span>
+      <div class="fortune-row">
+        <input type="range" id="fortuneSlider" min="0" max="800" value="0"
+               oninput="updateFortune(this.value)">
+        <span class="fortune-value" id="fortuneDisplay">0</span>
+      </div>
+      <span class="multiplier-badge" id="fortuneMultiplier">× 1.0배</span>
+    </div>
+
+    <div id="content">
+      <div class="loading">
+        <div class="spinner"></div>
+        <div>베이자 데이터 불러오는 중...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- API Key Modal -->
+  <div class="modal-overlay hidden" id="keyModal">
+    <div class="modal">
+      <h2>🔑 Hypixel API 키 설정</h2>
+      <p>
+        베이자 가격 조회를 위해 Hypixel API 키가 필요합니다.<br>
+        무료로 발급받으세요: <a href="https://developer.hypixel.net/" target="_blank">developer.hypixel.net</a>
+        <br><br>키는 브라우저 로컬에만 저장되며 서버로 전송 시에만 사용됩니다.
+      </p>
+      <div class="key-input-row">
+        <input class="key-input" id="keyInput" type="password"
+               placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+        <button class="save-btn" onclick="saveKey()">저장</button>
+      </div>
+      <div class="key-status" id="keyStatus"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
