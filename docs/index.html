@@ -296,6 +296,15 @@ function xpToLevel(xp) {
 // 스킬 레벨당 행운 보너스 (base only, 장비 제외)
 function levelToFortune(level) { return level * 4; }
 
+/* ── CORS 프록시를 통한 fetch ───────────────────────────────────── */
+// 브라우저에서 외부 API 직접 호출 시 CORS 차단되므로 프록시 경유
+async function proxiedFetch(url) {
+  const proxy = 'https://corsproxy.io/?url=';
+  const res = await fetch(proxy + encodeURIComponent(url));
+  if (!res.ok) throw new Error(`${res.status}`);
+  return res.json();
+}
+
 /* ── State ─────────────────────────────────────────────────────── */
 let currentTab  = 'farming';
 let fortuneValues = { farming: 0, mining: 0, logging: 0 };
@@ -326,12 +335,7 @@ async function loadProfile() {
   btn.disabled = true;
 
   try {
-    // SkyCrypt API (sky.shiiyu.moe) 에서 프로필 데이터 가져오기
-    const res = await fetch(`https://sky.shiiyu.moe/api/v2/profile/${encodeURIComponent(username)}`);
-    if (res.status === 404) throw new Error('유저를 찾을 수 없어요. 유저네임을 확인해주세요.');
-    if (!res.ok) throw new Error(`API 오류 (${res.status})`);
-
-    const data = await res.json();
+    const data = await proxiedFetch(`https://sky.shiiyu.moe/api/v2/profile/${encodeURIComponent(username)}`);
     const parsed = parseSkyCryptProfile(data, username);
 
     playerInfo = parsed;
@@ -448,12 +452,17 @@ async function refreshData() {
   btn.disabled = true;
 
   try {
-    // SkyCrypt의 베이자 캐시 API 사용 (Hypixel 키 불필요)
-    const res = await fetch('https://sky.shiiyu.moe/api/v2/bazaar');
-    if (!res.ok) throw new Error(`${res.status}`);
-    const raw = await res.json();
+    // 베이자 데이터: SkyCrypt → CoflNet 순서로 시도
+    let raw = null;
+    const sources = [
+      'https://sky.shiiyu.moe/api/v2/bazaar',
+      'https://sky.coflnet.com/api/bazaar/tags/price/all',
+    ];
+    for (const src of sources) {
+      try { raw = await proxiedFetch(src); break; } catch (_) {}
+    }
+    if (!raw) throw new Error('모든 베이자 소스 실패');
 
-    // SkyCrypt 베이자 응답 → 내부 products 형식으로 정규화
     bazaarData = normalizeBazaar(raw);
 
     const time = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
@@ -463,8 +472,11 @@ async function refreshData() {
   } catch (err) {
     if (!bazaarData) {
       document.getElementById('content').innerHTML =
-        `<div class="error-box">❌ 베이자 데이터 로드 실패 (${err.message})<br>
-         <small style="margin-top:8px;display:block">잠시 후 🔄 새로고침을 눌러보세요.</small></div>`;
+        `<div class="error-box">❌ 베이자 데이터 로드 실패<br>
+         <small style="margin-top:8px;display:block">
+           오류: ${err.message}<br>
+           잠시 후 🔄 새로고침을 눌러보세요.
+         </small></div>`;
     }
   } finally {
     btn.disabled = false;
