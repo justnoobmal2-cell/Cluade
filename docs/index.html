@@ -6,284 +6,162 @@
   <title>SkyBlock 수익 계산기</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
-      background: #0d1117;
-      color: #c9d1d9;
-      min-height: 100vh;
+      background: #0d1117; color: #c9d1d9; min-height: 100vh;
     }
 
     .header {
       background: linear-gradient(135deg, #161b22, #1a2332);
       border-bottom: 1px solid #21262d;
       padding: 14px 16px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      position: sticky;
-      top: 0;
-      z-index: 10;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 10;
     }
-
     .header h1 {
-      font-size: 1.1rem;
-      font-weight: 700;
+      font-size: 1.1rem; font-weight: 700;
       background: linear-gradient(90deg, #58a6ff, #a371f7);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
     }
-
-    .header .subtitle {
-      font-size: 0.65rem;
-      color: #8b949e;
-      margin-top: 2px;
-    }
-
+    .header .subtitle { font-size: 0.65rem; color: #8b949e; margin-top: 2px; }
     .header-right { display: flex; align-items: center; gap: 8px; }
-
     #lastUpdated { font-size: 0.65rem; color: #8b949e; }
 
     .icon-btn {
-      background: #21262d;
-      border: 1px solid #30363d;
-      color: #8b949e;
-      width: 32px;
-      height: 32px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.9rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      background: #21262d; border: 1px solid #30363d;
+      color: #8b949e; height: 32px; padding: 0 10px;
+      border-radius: 6px; cursor: pointer; font-size: 0.8rem;
+      display: flex; align-items: center; gap: 4px; white-space: nowrap;
       transition: all 0.2s;
     }
     .icon-btn:hover { color: #c9d1d9; border-color: #58a6ff; }
     .icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .icon-btn.set { border-color: #2ea04340; color: #3fb950; }
 
     .container { max-width: 720px; margin: 0 auto; padding: 14px 12px; }
 
     .tabs {
-      display: flex;
-      gap: 4px;
-      background: #161b22;
-      border: 1px solid #21262d;
-      border-radius: 10px;
-      padding: 4px;
-      margin-bottom: 12px;
+      display: flex; gap: 4px;
+      background: #161b22; border: 1px solid #21262d;
+      border-radius: 10px; padding: 4px; margin-bottom: 12px;
     }
-
     .tab {
-      flex: 1;
-      padding: 9px 8px;
-      background: none;
-      border: none;
-      border-radius: 7px;
-      color: #8b949e;
-      font-size: 0.82rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
+      flex: 1; padding: 9px 8px; background: none; border: none;
+      border-radius: 7px; color: #8b949e; font-size: 0.82rem;
+      font-weight: 600; cursor: pointer; transition: all 0.2s;
     }
     .tab.active { background: #21262d; color: #58a6ff; }
     .tab:hover:not(.active) { color: #c9d1d9; background: #1c2128; }
 
     .controls {
-      background: #161b22;
-      border: 1px solid #21262d;
-      border-radius: 10px;
-      padding: 12px 16px;
-      margin-bottom: 12px;
+      background: #161b22; border: 1px solid #21262d;
+      border-radius: 10px; padding: 12px 16px; margin-bottom: 12px;
     }
-
-    .control-label {
-      font-size: 0.75rem;
-      color: #8b949e;
-      margin-bottom: 8px;
-      display: block;
-    }
-
+    .control-label { font-size: 0.75rem; color: #8b949e; margin-bottom: 8px; display: block; }
     .fortune-row { display: flex; align-items: center; gap: 10px; }
-
-    input[type="range"] {
-      flex: 1;
-      accent-color: #58a6ff;
-      cursor: pointer;
-    }
-
-    .fortune-value {
-      min-width: 36px;
-      text-align: right;
-      font-weight: 700;
-      color: #58a6ff;
-      font-size: 0.88rem;
-    }
-
+    input[type="range"] { flex: 1; accent-color: #58a6ff; cursor: pointer; }
+    .fortune-value { min-width: 36px; text-align: right; font-weight: 700; color: #58a6ff; font-size: 0.88rem; }
     .multiplier-badge {
-      background: #1c2128;
-      border: 1px solid #30363d;
-      border-radius: 5px;
-      padding: 3px 8px;
-      font-size: 0.72rem;
-      color: #a371f7;
-      white-space: nowrap;
+      background: #1c2128; border: 1px solid #30363d;
+      border-radius: 5px; padding: 3px 8px; font-size: 0.72rem; color: #a371f7; white-space: nowrap;
     }
 
-    /* Table */
     .table-header {
-      display: grid;
-      grid-template-columns: 30px 1fr 88px 100px 80px;
-      padding: 6px 12px;
-      font-size: 0.68rem;
-      color: #6e7681;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      margin-bottom: 3px;
+      display: grid; grid-template-columns: 30px 1fr 88px 100px 80px;
+      padding: 6px 12px; font-size: 0.68rem; color: #6e7681;
+      text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px;
     }
     .table-header span:nth-child(n+3) { text-align: right; }
 
     .item-row {
-      display: grid;
-      grid-template-columns: 30px 1fr 88px 100px 80px;
-      align-items: center;
-      padding: 11px 12px;
-      background: #161b22;
-      border: 1px solid #21262d;
-      border-radius: 8px;
-      margin-bottom: 4px;
-      transition: border-color 0.15s;
+      display: grid; grid-template-columns: 30px 1fr 88px 100px 80px;
+      align-items: center; padding: 11px 12px;
+      background: #161b22; border: 1px solid #21262d;
+      border-radius: 8px; margin-bottom: 4px; transition: border-color 0.15s;
     }
     .item-row:hover { border-color: #388bfd50; }
 
     .rank { font-size: 0.9rem; font-weight: 700; color: #6e7681; }
-
-    .item-name {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 0.82rem;
-      font-weight: 500;
-    }
+    .item-name { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; font-weight: 500; }
     .item-icon { font-size: 1.05em; width: 20px; text-align: center; }
-
     .price-cell { text-align: right; font-size: 0.78rem; color: #e3b341; }
     .drops-cell { text-align: right; font-size: 0.78rem; color: #8b949e; }
     .coins-cell { text-align: right; }
     .coins-value { font-size: 0.88rem; font-weight: 700; color: #3fb950; }
 
-    .bar-wrap {
-      grid-column: 1 / -1;
-      padding: 0 0 0 30px;
-      margin-top: -2px;
-      margin-bottom: 2px;
-    }
+    .bar-wrap { grid-column: 1 / -1; padding: 0 0 0 30px; margin-top: -2px; margin-bottom: 2px; }
     .bar-track { height: 4px; background: #21262d; border-radius: 2px; }
     .bar-fill { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
 
     .no-price { color: #484f58; font-size: 0.75rem; }
 
-    /* State screens */
     .loading, .error-box {
-      text-align: center;
-      padding: 48px 20px;
-      color: #8b949e;
-      font-size: 0.88rem;
+      text-align: center; padding: 48px 20px;
+      color: #8b949e; font-size: 0.88rem;
     }
     .spinner {
-      display: inline-block;
-      width: 22px; height: 22px;
-      border: 3px solid #21262d;
-      border-top-color: #58a6ff;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin-bottom: 10px;
+      display: inline-block; width: 22px; height: 22px;
+      border: 3px solid #21262d; border-top-color: #58a6ff;
+      border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 10px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-
     .error-box {
-      background: #1a1a1f;
-      border: 1px solid #f8514940;
-      border-radius: 8px;
-      color: #f85149;
-      line-height: 1.6;
+      background: #1a1a1f; border: 1px solid #f8514940;
+      border-radius: 8px; color: #f85149; line-height: 1.6;
     }
-    .error-box a { color: #58a6ff; text-decoration: none; }
+    .error-box a { color: #58a6ff; }
 
     .top1 { color: #f0c040; }
     .top2 { color: #c0c0c0; }
     .top3 { color: #cd7f32; }
 
-    /* Key Modal */
+    /* Modal */
     .modal-overlay {
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,0.8);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-      padding: 16px;
+      position: fixed; inset: 0; background: rgba(0,0,0,0.8);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100; padding: 16px;
     }
     .modal-overlay.hidden { display: none; }
-
     .modal {
-      background: #161b22;
-      border: 1px solid #30363d;
-      border-radius: 12px;
-      padding: 24px;
-      width: 100%;
-      max-width: 400px;
+      background: #161b22; border: 1px solid #30363d;
+      border-radius: 12px; padding: 24px; width: 100%; max-width: 400px;
     }
-    .modal h2 { font-size: 1rem; margin-bottom: 10px; color: #e6edf3; }
+    .modal h2 { font-size: 1rem; margin-bottom: 8px; color: #e6edf3; }
     .modal p { font-size: 0.8rem; color: #8b949e; margin-bottom: 16px; line-height: 1.6; }
     .modal a { color: #58a6ff; }
 
-    .key-input-row { display: flex; gap: 8px; margin-bottom: 8px; }
-
-    .key-input {
-      flex: 1;
-      background: #0d1117;
-      border: 1px solid #30363d;
-      border-radius: 6px;
-      padding: 8px 10px;
-      color: #c9d1d9;
-      font-size: 0.78rem;
-      font-family: monospace;
+    .input-row { display: flex; gap: 8px; margin-bottom: 8px; }
+    .text-input {
+      flex: 1; background: #0d1117; border: 1px solid #30363d;
+      border-radius: 6px; padding: 9px 12px; color: #c9d1d9;
+      font-size: 0.85rem;
     }
-    .key-input:focus { outline: none; border-color: #58a6ff; }
-
-    .save-btn {
-      background: #238636;
-      border: 1px solid #2ea043;
-      color: #fff;
-      padding: 8px 14px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.82rem;
-      font-weight: 600;
-      white-space: nowrap;
+    .text-input:focus { outline: none; border-color: #58a6ff; }
+    .confirm-btn {
+      background: #238636; border: 1px solid #2ea043; color: #fff;
+      padding: 9px 16px; border-radius: 6px; cursor: pointer;
+      font-size: 0.85rem; font-weight: 600; white-space: nowrap;
     }
-    .save-btn:hover { background: #2ea043; }
+    .confirm-btn:hover { background: #2ea043; }
+    .modal-status { font-size: 0.73rem; color: #8b949e; min-height: 18px; }
 
-    .key-status { font-size: 0.73rem; color: #8b949e; }
-
-    .key-badge {
-      font-size: 0.7rem;
-      background: #1c2128;
-      border: 1px solid #30363d;
-      border-radius: 5px;
-      padding: 3px 8px;
-      color: #8b949e;
-      cursor: pointer;
-      white-space: nowrap;
+    .profile-card {
+      background: #0d1117; border: 1px solid #2ea04340;
+      border-radius: 8px; padding: 12px 14px; margin-bottom: 12px;
+      display: flex; align-items: center; justify-content: space-between;
     }
-    .key-badge.set { border-color: #2ea04340; color: #3fb950; }
+    .profile-name { font-size: 0.88rem; font-weight: 600; color: #3fb950; }
+    .profile-profile { font-size: 0.72rem; color: #8b949e; margin-top: 2px; }
+    .fortune-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+    .fortune-tag {
+      background: #1c2128; border: 1px solid #30363d;
+      border-radius: 4px; padding: 2px 7px; font-size: 0.7rem; color: #a371f7;
+    }
 
-    /* Mobile layout: 컬럼 줄이기 */
     @media (max-width: 480px) {
-      .table-header { grid-template-columns: 28px 1fr 90px 90px; }
+      .table-header { grid-template-columns: 28px 1fr 80px 80px; }
       .table-header span:nth-child(4) { display: none; }
-      .item-row { grid-template-columns: 28px 1fr 90px 90px; }
+      .item-row { grid-template-columns: 28px 1fr 80px 80px; }
       .drops-cell { display: none; }
     }
   </style>
@@ -297,12 +175,14 @@
   </div>
   <div class="header-right">
     <span id="lastUpdated"></span>
-    <button class="key-badge" id="keyBadge" onclick="openKeyModal()">🔑 키 없음</button>
+    <button class="icon-btn" id="profileBtn" onclick="openModal()">👤 유저 없음</button>
     <button class="icon-btn" id="refreshBtn" onclick="refreshData()" title="새로고침">🔄</button>
   </div>
 </div>
 
 <div class="container">
+  <div id="profileCard" style="display:none"></div>
+
   <div class="tabs">
     <button class="tab active" data-tab="farming" onclick="switchTab(this,'farming')">🌾 농사</button>
     <button class="tab" data-tab="mining" onclick="switchTab(this,'mining')">⛏️ 광질</button>
@@ -324,120 +204,239 @@
   </div>
 </div>
 
-<!-- API Key Modal -->
-<div class="modal-overlay hidden" id="keyModal" onclick="handleOverlayClick(event)">
+<!-- Username Modal -->
+<div class="modal-overlay" id="modal" onclick="handleOverlay(event)">
   <div class="modal">
-    <h2>🔑 Hypixel API 키 설정</h2>
-    <p>
-      베이자 가격 조회를 위해 API 키가 필요해요.<br>
-      무료 발급: <a href="https://developer.hypixel.net/" target="_blank">developer.hypixel.net</a>
-      (마인크래프트 계정으로 로그인 후 Generate Key)<br><br>
-      키는 이 기기에만 저장되고 외부로 전송되지 않아요.
-    </p>
-    <div class="key-input-row">
-      <input class="key-input" id="keyInput" type="password"
-             placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-             onkeydown="if(event.key==='Enter')saveKey()">
-      <button class="save-btn" onclick="saveKey()">저장</button>
+    <h2>👤 마인크래프트 유저네임</h2>
+    <p>유저네임을 입력하면 스카이블록 프로필에서<br>농사/광질/벌목 행운을 자동으로 불러와요.</p>
+    <div class="input-row">
+      <input class="text-input" id="usernameInput" type="text"
+             placeholder="예: allulose_mal"
+             onkeydown="if(event.key==='Enter')loadProfile()">
+      <button class="confirm-btn" onclick="loadProfile()">불러오기</button>
     </div>
-    <div class="key-status" id="keyStatus"></div>
+    <div class="modal-status" id="modalStatus"></div>
   </div>
 </div>
 
 <script>
 'use strict';
 
+/* ── Item data ─────────────────────────────────────────────────── */
 const CATEGORIES = {
   farming: {
     label: '농사 행운 (Farming Fortune)',
     maxFortune: 800,
+    skillKey: 'farming',
     items: [
-      { id: 'SUGAR_CANE',          alt: [],              name: '사탕수수',      icon: '🌿', base: 15000 },
-      { id: 'CACTUS',              alt: [],              name: '선인장',        icon: '🌵', base: 10000 },
-      { id: 'COCOA_BEANS',         alt: [],              name: '코코아 콩',     icon: '🟫', base: 8000  },
-      { id: 'WHEAT',               alt: [],              name: '밀',            icon: '🌾', base: 7000  },
-      { id: 'CARROT_ITEM',         alt: ['CARROT'],      name: '당근',          icon: '🥕', base: 7000  },
-      { id: 'POTATO_ITEM',         alt: ['POTATO'],      name: '감자',          icon: '🥔', base: 7000  },
-      { id: 'PUMPKIN',             alt: [],              name: '호박',          icon: '🎃', base: 1500  },
-      { id: 'MELON',               alt: [],              name: '수박',          icon: '🍉', base: 12000 },
-      { id: 'MUSHROOM_COLLECTION', alt: ['RED_MUSHROOM'],name: '빨간 버섯',     icon: '🍄', base: 3000  },
-      { id: 'NETHER_STALK',        alt: ['NETHER_WART'], name: '네더 사마귀',   icon: '🟢', base: 10000 },
+      { id: 'SUGAR_CANE',          alt: [],               name: '사탕수수',    icon: '🌿', base: 15000 },
+      { id: 'CACTUS',              alt: [],               name: '선인장',      icon: '🌵', base: 10000 },
+      { id: 'COCOA_BEANS',         alt: [],               name: '코코아 콩',   icon: '🟫', base: 8000  },
+      { id: 'WHEAT',               alt: [],               name: '밀',          icon: '🌾', base: 7000  },
+      { id: 'CARROT_ITEM',         alt: ['CARROT'],       name: '당근',        icon: '🥕', base: 7000  },
+      { id: 'POTATO_ITEM',         alt: ['POTATO'],       name: '감자',        icon: '🥔', base: 7000  },
+      { id: 'PUMPKIN',             alt: [],               name: '호박',        icon: '🎃', base: 1500  },
+      { id: 'MELON',               alt: [],               name: '수박',        icon: '🍉', base: 12000 },
+      { id: 'MUSHROOM_COLLECTION', alt: ['RED_MUSHROOM'], name: '빨간 버섯',   icon: '🍄', base: 3000  },
+      { id: 'NETHER_STALK',        alt: ['NETHER_WART'],  name: '네더 사마귀', icon: '🟢', base: 10000 },
     ]
   },
   mining: {
     label: '광질 행운 (Mining Fortune)',
     maxFortune: 500,
+    skillKey: 'mining',
     items: [
-      { id: 'MITHRIL_ORE',  alt: [],  name: '미스릴 광석',   icon: '💠', base: 700   },
-      { id: 'TITANIUM_ORE', alt: [],  name: '티타늄 광석',   icon: '🔩', base: 80    },
-      { id: 'HARD_STONE',   alt: [],  name: '단단한 돌',     icon: '🪨', base: 30000 },
-      { id: 'DIAMOND',      alt: [],  name: '다이아몬드',    icon: '💎', base: 800   },
-      { id: 'EMERALD',      alt: [],  name: '에메랄드',      icon: '💚', base: 700   },
-      { id: 'GOLD_INGOT',   alt: [],  name: '금 주괴',       icon: '🟡', base: 1000  },
-      { id: 'IRON_INGOT',   alt: [],  name: '철 주괴',       icon: '⚙️', base: 2000  },
-      { id: 'QUARTZ',       alt: [],  name: '석영',          icon: '🔷', base: 4000  },
-      { id: 'REDSTONE',     alt: [],  name: '레드스톤',      icon: '🔴', base: 6000  },
-      { id: 'LAPIS_LAZULI', alt: [],  name: '청금석',        icon: '🔵', base: 5000  },
-      { id: 'COAL',         alt: [],  name: '석탄',          icon: '⬛', base: 3000  },
-      { id: 'SULPHUR',      alt: [],  name: '황 (크림슨)',   icon: '🌕', base: 2000  },
-      { id: 'OBSIDIAN',     alt: [],  name: '흑요석',        icon: '🟣', base: 500   },
+      { id: 'MITHRIL_ORE',  alt: [],  name: '미스릴 광석',  icon: '💠', base: 700   },
+      { id: 'TITANIUM_ORE', alt: [],  name: '티타늄 광석',  icon: '🔩', base: 80    },
+      { id: 'HARD_STONE',   alt: [],  name: '단단한 돌',    icon: '🪨', base: 30000 },
+      { id: 'DIAMOND',      alt: [],  name: '다이아몬드',   icon: '💎', base: 800   },
+      { id: 'EMERALD',      alt: [],  name: '에메랄드',     icon: '💚', base: 700   },
+      { id: 'GOLD_INGOT',   alt: [],  name: '금 주괴',      icon: '🟡', base: 1000  },
+      { id: 'IRON_INGOT',   alt: [],  name: '철 주괴',      icon: '⚙️', base: 2000  },
+      { id: 'QUARTZ',       alt: [],  name: '석영',         icon: '🔷', base: 4000  },
+      { id: 'REDSTONE',     alt: [],  name: '레드스톤',     icon: '🔴', base: 6000  },
+      { id: 'LAPIS_LAZULI', alt: [],  name: '청금석',       icon: '🔵', base: 5000  },
+      { id: 'COAL',         alt: [],  name: '석탄',         icon: '⬛', base: 3000  },
+      { id: 'SULPHUR',      alt: [],  name: '황 (크림슨)',  icon: '🌕', base: 2000  },
+      { id: 'OBSIDIAN',     alt: [],  name: '흑요석',       icon: '🟣', base: 500   },
     ]
   },
   logging: {
     label: '채집 행운 (Foraging Fortune)',
     maxFortune: 500,
+    skillKey: 'foraging',
     items: [
-      { id: 'JUNGLE_LOG',   alt: ['LOG:3'],   name: '정글나무',      icon: '🪵', base: 15000 },
-      { id: 'OAK_LOG',      alt: ['LOG'],     name: '참나무',        icon: '🪵', base: 12000 },
-      { id: 'BIRCH_LOG',    alt: ['LOG:2'],   name: '자작나무',      icon: '🪵', base: 12000 },
-      { id: 'SPRUCE_LOG',   alt: ['LOG:1'],   name: '가문비나무',    icon: '🪵', base: 10000 },
-      { id: 'DARK_OAK_LOG', alt: ['LOG_2:1'], name: '짙은 참나무',  icon: '🪵', base: 10000 },
-      { id: 'ACACIA_LOG',   alt: ['LOG_2'],   name: '아카시아',      icon: '🪵', base: 9000  },
+      { id: 'JUNGLE_LOG',   alt: ['LOG:3'],   name: '정글나무',     icon: '🪵', base: 15000 },
+      { id: 'OAK_LOG',      alt: ['LOG'],     name: '참나무',       icon: '🪵', base: 12000 },
+      { id: 'BIRCH_LOG',    alt: ['LOG:2'],   name: '자작나무',     icon: '🪵', base: 12000 },
+      { id: 'SPRUCE_LOG',   alt: ['LOG:1'],   name: '가문비나무',   icon: '🪵', base: 10000 },
+      { id: 'DARK_OAK_LOG', alt: ['LOG_2:1'], name: '짙은 참나무', icon: '🪵', base: 10000 },
+      { id: 'ACACIA_LOG',   alt: ['LOG_2'],   name: '아카시아',     icon: '🪵', base: 9000  },
     ]
   }
 };
 
-let currentTab = 'farming';
-let fortuneValues = { farming: 0, mining: 0, logging: 0 };
-let bazaarData = null;
-let apiKey = localStorage.getItem('hypixel_key') || '';
+/* ── SkyBlock XP → level table (공통) ─────────────────────────── */
+const SKILL_XP = [50,125,200,300,500,750,1000,1500,2000,3500,5000,7500,10000,
+  15000,20000,30000,50000,75000,100000,200000,300000,400000,500000,600000,
+  700000,800000,900000,1000000,1100000,1200000,1300000,1400000,1500000,
+  1600000,1700000,1800000,1900000,2000000,2100000,2200000,2300000,2400000,
+  2500000,2600000,2750000,2900000,3100000,3400000,3700000,4000000,4300000,
+  4600000,4900000,5200000,5500000,5800000,6100000,6400000,6700000,7000000];
 
-/* ── Key modal ── */
-function openKeyModal() {
-  document.getElementById('keyModal').classList.remove('hidden');
-  document.getElementById('keyInput').value = apiKey;
-  document.getElementById('keyStatus').textContent = '';
-  setTimeout(() => document.getElementById('keyInput').focus(), 100);
+function xpToLevel(xp) {
+  let lvl = 0, total = 0;
+  for (let i = 0; i < SKILL_XP.length; i++) {
+    total += SKILL_XP[i];
+    if (xp >= total) lvl = i + 1; else break;
+  }
+  return lvl;
 }
 
-function handleOverlayClick(e) {
-  if (e.target === e.currentTarget && apiKey) {
-    document.getElementById('keyModal').classList.add('hidden');
+// 스킬 레벨당 행운 보너스 (base only, 장비 제외)
+function levelToFortune(level) { return level * 4; }
+
+/* ── State ─────────────────────────────────────────────────────── */
+let currentTab  = 'farming';
+let fortuneValues = { farming: 0, mining: 0, logging: 0 };
+let bazaarData  = null;
+let playerInfo  = JSON.parse(localStorage.getItem('sb_player') || 'null');
+
+/* ── Modal ─────────────────────────────────────────────────────── */
+function openModal() {
+  document.getElementById('modal').classList.remove('hidden');
+  const inp = document.getElementById('usernameInput');
+  inp.value = playerInfo?.username || '';
+  document.getElementById('modalStatus').textContent = '';
+  setTimeout(() => inp.focus(), 100);
+}
+
+function handleOverlay(e) {
+  if (e.target === e.currentTarget && playerInfo) {
+    document.getElementById('modal').classList.add('hidden');
   }
 }
 
-function saveKey() {
-  const val = document.getElementById('keyInput').value.trim();
-  if (!val) { document.getElementById('keyStatus').textContent = '⚠️ 키를 입력해주세요.'; return; }
-  apiKey = val;
-  localStorage.setItem('hypixel_key', val);
-  document.getElementById('keyModal').classList.add('hidden');
-  updateKeyBadge();
-  refreshData();
+async function loadProfile() {
+  const username = document.getElementById('usernameInput').value.trim();
+  if (!username) { setModalStatus('⚠️ 유저네임을 입력해주세요.'); return; }
+
+  setModalStatus('🔍 프로필 불러오는 중...');
+  const btn = document.querySelector('.confirm-btn');
+  btn.disabled = true;
+
+  try {
+    // SkyCrypt API (sky.shiiyu.moe) 에서 프로필 데이터 가져오기
+    const res = await fetch(`https://sky.shiiyu.moe/api/v2/profile/${encodeURIComponent(username)}`);
+    if (res.status === 404) throw new Error('유저를 찾을 수 없어요. 유저네임을 확인해주세요.');
+    if (!res.ok) throw new Error(`API 오류 (${res.status})`);
+
+    const data = await res.json();
+    const parsed = parseSkyCryptProfile(data, username);
+
+    playerInfo = parsed;
+    localStorage.setItem('sb_player', JSON.stringify(parsed));
+
+    // 행운 슬라이더 자동 설정
+    applyPlayerFortune(parsed);
+
+    document.getElementById('modal').classList.add('hidden');
+    renderProfileCard(parsed);
+    render();
+
+  } catch (err) {
+    setModalStatus('❌ ' + err.message);
+  } finally {
+    btn.disabled = false;
+  }
 }
 
-function updateKeyBadge() {
-  const b = document.getElementById('keyBadge');
-  if (apiKey) { b.textContent = '🔑 키 설정됨'; b.classList.add('set'); }
-  else         { b.textContent = '🔑 키 없음';  b.classList.remove('set'); }
+function setModalStatus(msg) {
+  document.getElementById('modalStatus').textContent = msg;
 }
 
-/* ── Data ── */
+function parseSkyCryptProfile(data, username) {
+  // SkyCrypt v2 응답 구조 파싱
+  let farmingXp = 0, miningXp = 0, foragingXp = 0;
+  let profileName = '';
+
+  try {
+    // profiles 객체에서 선택된 프로필 찾기
+    const profiles = data.profiles || {};
+    let selectedProfile = null;
+
+    for (const [, profile] of Object.entries(profiles)) {
+      if (profile.current) { selectedProfile = profile; break; }
+    }
+    if (!selectedProfile) {
+      // current 없으면 첫 번째
+      selectedProfile = Object.values(profiles)[0];
+    }
+
+    profileName = selectedProfile?.cute_name || '';
+
+    // 해당 멤버 데이터 찾기
+    const members = selectedProfile?.members || {};
+    const memberData = Object.values(members)[0] || {};
+
+    farmingXp  = memberData.experience_skill_farming  || 0;
+    miningXp   = memberData.experience_skill_mining   || 0;
+    foragingXp = memberData.experience_skill_foraging || 0;
+
+  } catch (e) { /* 파싱 실패 시 0으로 유지 */ }
+
+  const farmingLevel  = xpToLevel(farmingXp);
+  const miningLevel   = xpToLevel(miningXp);
+  const foragingLevel = xpToLevel(foragingXp);
+
+  return {
+    username,
+    profileName,
+    farming:  levelToFortune(farmingLevel),
+    mining:   levelToFortune(miningLevel),
+    logging:  levelToFortune(foragingLevel),
+    levels: { farming: farmingLevel, mining: miningLevel, foraging: foragingLevel }
+  };
+}
+
+function applyPlayerFortune(info) {
+  fortuneValues.farming = info.farming;
+  fortuneValues.mining  = info.mining;
+  fortuneValues.logging = info.logging;
+
+  const cat = CATEGORIES[currentTab];
+  const slider = document.getElementById('fortuneSlider');
+  slider.max   = cat.maxFortune;
+  slider.value = fortuneValues[currentTab];
+  setDisplay(fortuneValues[currentTab]);
+}
+
+function renderProfileCard(info) {
+  const card = document.getElementById('profileCard');
+  card.style.display = 'block';
+  card.innerHTML = `
+    <div class="profile-card">
+      <div>
+        <div class="profile-name">👤 ${info.username}</div>
+        <div class="profile-profile">${info.profileName ? '프로필: ' + info.profileName : ''} (스킬 기반 행운만 반영)</div>
+        <div class="fortune-tags">
+          <span class="fortune-tag">🌾 농사 Lv${info.levels.farming} → ${info.farming}</span>
+          <span class="fortune-tag">⛏️ 광질 Lv${info.levels.mining} → ${info.mining}</span>
+          <span class="fortune-tag">🪓 벌목 Lv${info.levels.foraging} → ${info.logging}</span>
+        </div>
+      </div>
+    </div>`;
+
+  const btn = document.getElementById('profileBtn');
+  btn.textContent = `👤 ${info.username}`;
+  btn.classList.add('set');
+}
+
+/* ── Bazaar ─────────────────────────────────────────────────────── */
 function getPrice(item, products) {
   for (const id of [item.id, ...item.alt]) {
     const p = products[id];
     if (!p) continue;
-    // v2 has p.sellPrice directly; v1 uses quick_status
     const price = p.sellPrice ?? p.quick_status?.sellPrice;
     if (price > 0) return price;
   }
@@ -448,67 +447,78 @@ async function refreshData() {
   const btn = document.getElementById('refreshBtn');
   btn.disabled = true;
 
-  if (!apiKey) {
-    document.getElementById('content').innerHTML = `
-      <div class="error-box">
-        🔑 API 키를 먼저 설정해주세요.<br><br>
-        우측 상단 <strong>🔑 키 없음</strong>을 눌러 키를 입력하세요.<br>
-        키 무료 발급: <a href="https://developer.hypixel.net/" target="_blank">developer.hypixel.net</a>
-      </div>`;
-    btn.disabled = false;
-    return;
-  }
-
   try {
-    // v2 API: API-Key 헤더 방식
-    const res = await fetch('https://api.hypixel.net/v2/skyblock/bazaar', {
-      headers: { 'API-Key': apiKey }
-    });
+    // SkyCrypt의 베이자 캐시 API 사용 (Hypixel 키 불필요)
+    const res = await fetch('https://sky.shiiyu.moe/api/v2/bazaar');
+    if (!res.ok) throw new Error(`${res.status}`);
+    const raw = await res.json();
 
-    if (res.status === 403) {
-      document.getElementById('keyStatus') && (document.getElementById('keyStatus').textContent = '');
-      throw new Error('API 키가 유효하지 않습니다. 키를 다시 확인해주세요.');
-    }
-    if (!res.ok) throw new Error(`API 오류 (${res.status})`);
+    // SkyCrypt 베이자 응답 → 내부 products 형식으로 정규화
+    bazaarData = normalizeBazaar(raw);
 
-    const data = await res.json();
-    if (!data.success) throw new Error(data.cause || '알 수 없는 오류');
-
-    bazaarData = data;
     const time = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
     document.getElementById('lastUpdated').textContent = time + ' 기준';
     render();
+
   } catch (err) {
     if (!bazaarData) {
       document.getElementById('content').innerHTML =
-        `<div class="error-box">❌ ${err.message}</div>`;
+        `<div class="error-box">❌ 베이자 데이터 로드 실패 (${err.message})<br>
+         <small style="margin-top:8px;display:block">잠시 후 🔄 새로고침을 눌러보세요.</small></div>`;
     }
-    console.error(err);
   } finally {
     btn.disabled = false;
   }
 }
 
-/* ── Render ── */
+function normalizeBazaar(raw) {
+  // SkyCrypt v2/bazaar 응답 형식: { "ITEM_ID": { sellPrice, buyPrice, ... } }
+  // 또는 배열 형식에 따라 처리
+  const products = {};
+
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    // 객체 형식: key = itemId
+    for (const [id, val] of Object.entries(raw)) {
+      if (val && typeof val === 'object') {
+        products[id] = {
+          sellPrice: val.sellPrice ?? val.sell_price ?? val.sellSummary?.[0]?.pricePerUnit ?? 0,
+          quick_status: {
+            sellPrice: val.sellPrice ?? val.sell_price ?? val.sellSummary?.[0]?.pricePerUnit ?? 0
+          }
+        };
+      }
+    }
+  } else if (Array.isArray(raw)) {
+    // 배열 형식
+    for (const item of raw) {
+      const id = item.tag || item.productId || item.id;
+      if (id) {
+        products[id] = {
+          sellPrice: item.sell ?? item.sellPrice ?? item.price ?? 0,
+          quick_status: { sellPrice: item.sell ?? item.sellPrice ?? item.price ?? 0 }
+        };
+      }
+    }
+  }
+
+  return { success: true, products };
+}
+
+/* ── Render ─────────────────────────────────────────────────────── */
 function fmt(n) {
-  if (n >= 1e6) return (n/1e6).toFixed(2) + 'M';
-  if (n >= 1e3) return (n/1e3).toFixed(1) + 'K';
+  if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
   return Math.round(n).toLocaleString('ko-KR');
 }
-
 function fmtPrice(n) {
-  return n >= 1000
-    ? n.toLocaleString('ko-KR', { maximumFractionDigits: 0 })
-    : n.toFixed(1);
+  return n >= 1000 ? n.toLocaleString('ko-KR', { maximumFractionDigits: 0 }) : n.toFixed(1);
 }
-
 function rankIcon(r) {
   if (r === 1) return '<span class="top1">🥇</span>';
   if (r === 2) return '<span class="top2">🥈</span>';
   if (r === 3) return '<span class="top3">🥉</span>';
   return `<span style="color:#6e7681;font-size:.82rem">${r}</span>`;
 }
-
 function barColor(ratio) {
   if (ratio >= 0.65) return '#3fb950';
   if (ratio >= 0.35) return '#d29922';
@@ -517,13 +527,13 @@ function barColor(ratio) {
 
 function render() {
   if (!bazaarData) return;
-  const cat = CATEGORIES[currentTab];
+  const cat     = CATEGORIES[currentTab];
   const fortune = fortuneValues[currentTab];
   const products = bazaarData.products ?? {};
 
   const rows = cat.items.map(item => {
-    const price = getPrice(item, products);
-    const drops = Math.round(item.base * (1 + fortune / 100));
+    const price   = getPrice(item, products);
+    const drops   = Math.round(item.base * (1 + fortune / 100));
     const coinsHr = price !== null ? drops * price : null;
     return { ...item, price, drops, coinsHr };
   }).sort((a, b) => {
@@ -535,49 +545,46 @@ function render() {
 
   const maxC = Math.max(...rows.map(r => r.coinsHr ?? 0), 1);
 
-  const header = `
-    <div class="table-header">
-      <span>#</span><span>아이템</span>
-      <span>개당</span><span>시간당 드롭</span><span>코인/시간</span>
-    </div>`;
+  const header = `<div class="table-header">
+    <span>#</span><span>아이템</span>
+    <span>개당</span><span>드롭/시간</span><span>코인/시간</span>
+  </div>`;
 
   const items = rows.map((item, i) => {
-    const rank = i + 1;
-    const priceCell = item.price !== null
+    const rank  = i + 1;
+    const pCell = item.price !== null
       ? `<span style="color:#e3b341">${fmtPrice(item.price)}c</span>`
       : `<span class="no-price">-</span>`;
-    const coinsCell = item.coinsHr !== null
+    const cCell = item.coinsHr !== null
       ? `<span class="coins-value">${fmt(item.coinsHr)}</span>`
       : `<span class="no-price">-</span>`;
     const ratio = item.coinsHr !== null ? item.coinsHr / maxC : 0;
-    const pct = (ratio * 100).toFixed(1);
 
-    return `
-      <div class="item-row">
-        <span class="rank">${rankIcon(rank)}</span>
-        <span class="item-name"><span class="item-icon">${item.icon}</span>${item.name}</span>
-        <span class="price-cell">${priceCell}</span>
-        <span class="drops-cell">${item.drops.toLocaleString('ko-KR')}</span>
-        <span class="coins-cell">${coinsCell}</span>
-        <div class="bar-wrap">
-          <div class="bar-track">
-            <div class="bar-fill" style="width:${pct}%;background:${barColor(ratio)}"></div>
-          </div>
+    return `<div class="item-row">
+      <span class="rank">${rankIcon(rank)}</span>
+      <span class="item-name"><span class="item-icon">${item.icon}</span>${item.name}</span>
+      <span class="price-cell">${pCell}</span>
+      <span class="drops-cell">${item.drops.toLocaleString('ko-KR')}</span>
+      <span class="coins-cell">${cCell}</span>
+      <div class="bar-wrap">
+        <div class="bar-track">
+          <div class="bar-fill" style="width:${(ratio*100).toFixed(1)}%;background:${barColor(ratio)}"></div>
         </div>
-      </div>`;
+      </div>
+    </div>`;
   }).join('');
 
   document.getElementById('content').innerHTML = header + items;
 }
 
-/* ── Controls ── */
+/* ── Controls ───────────────────────────────────────────────────── */
 function switchTab(btn, tab) {
   currentTab = tab;
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-  const cat = CATEGORIES[tab];
+  const cat    = CATEGORIES[tab];
   document.getElementById('fortuneLabel').textContent = cat.label;
   const slider = document.getElementById('fortuneSlider');
-  slider.max = cat.maxFortune;
+  slider.max   = cat.maxFortune;
   slider.value = fortuneValues[tab];
   setDisplay(fortuneValues[tab]);
   render();
@@ -594,11 +601,15 @@ function setDisplay(v) {
   document.getElementById('fortuneMultiplier').textContent = `×${(1 + v/100).toFixed(1)}배`;
 }
 
-/* ── Init ── */
-updateKeyBadge();
-if (apiKey) refreshData();
-else openKeyModal();
+/* ── Init ───────────────────────────────────────────────────────── */
+if (playerInfo) {
+  applyPlayerFortune(playerInfo);
+  renderProfileCard(playerInfo);
+} else {
+  openModal();
+}
 
+refreshData();
 setInterval(refreshData, 5 * 60 * 1000);
 </script>
 </body>
