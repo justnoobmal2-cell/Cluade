@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>수학 기출문제 아카이브</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">∑</span>
+        <span class="logo-text">수학기출 아카이브</span>
+      </div>
+      <nav class="nav">
+        <a href="#" class="nav-link active" data-section="home">홈</a>
+        <a href="#" class="nav-link" data-section="problems">문제 검색</a>
+        <a href="#" class="nav-link" data-section="exams">시험지</a>
+        <a href="#" class="nav-link" data-section="stats">통계</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero" id="section-home">
+    <div class="hero-content">
+      <h1 class="hero-title">수학 기출문제<br /><span class="highlight">한 곳에서</span> 모아보기</h1>
+      <p class="hero-sub">수능 · 모의고사 · 내신 기출문제를 과목별 · 연도별로 정리했습니다.</p>
+      <div class="search-bar">
+        <input type="text" id="search-input" placeholder="문제 검색... (예: 극한, 미분, 확률)" />
+        <button id="search-btn" onclick="searchProblems()">검색</button>
+      </div>
+      <div class="hero-tags">
+        <span class="tag" onclick="filterByTag('수능')">수능</span>
+        <span class="tag" onclick="filterByTag('모의고사')">모의고사</span>
+        <span class="tag" onclick="filterByTag('수학1')">수학Ⅰ</span>
+        <span class="tag" onclick="filterByTag('수학2')">수학Ⅱ</span>
+        <span class="tag" onclick="filterByTag('미적분')">미적분</span>
+        <span class="tag" onclick="filterByTag('확률과통계')">확률과통계</span>
+        <span class="tag" onclick="filterByTag('기하')">기하</span>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="formula-card">
+        <div class="formula">∫<sub>a</sub><sup>b</sup> f(x)dx = F(b) - F(a)</div>
+      </div>
+      <div class="formula-card small top-right">
+        <div class="formula">lim<sub>x→∞</sub> (1 + 1/n)<sup>n</sup> = e</div>
+      </div>
+      <div class="formula-card small bottom-left">
+        <div class="formula">sin²θ + cos²θ = 1</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stats Bar -->
+  <section class="stats-bar">
+    <div class="stat-item">
+      <span class="stat-num">2,480</span>
+      <span class="stat-label">총 문제 수</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-num">124</span>
+      <span class="stat-label">시험지</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-num">25</span>
+      <span class="stat-label">년도 범위</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-num">7</span>
+      <span class="stat-label">과목</span>
+    </div>
+  </section>
+
+  <!-- Category Section -->
+  <section class="section" id="section-exams">
+    <div class="section-inner">
+      <h2 class="section-title">시험 종류별 보기</h2>
+      <div class="category-grid">
+        <div class="category-card suneung" onclick="showExams('수능')">
+          <div class="cat-icon">📝</div>
+          <div class="cat-name">수능</div>
+          <div class="cat-desc">대학수학능력시험 기출</div>
+          <div class="cat-count">2000~2025년 · 25개</div>
+        </div>
+        <div class="category-card mock" onclick="showExams('모의고사')">
+          <div class="cat-icon">📋</div>
+          <div class="cat-name">모의고사</div>
+          <div class="cat-desc">3·4·6·7·9·10월 시행</div>
+          <div class="cat-count">2015~2025년 · 66개</div>
+        </div>
+        <div class="category-card school" onclick="showExams('내신')">
+          <div class="cat-icon">🏫</div>
+          <div class="cat-name">내신</div>
+          <div class="cat-desc">중간·기말 내신 기출</div>
+          <div class="cat-count">고1·2·3 · 33개</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Problems Section -->
+  <section class="section bg-light" id="section-problems">
+    <div class="section-inner">
+      <div class="problems-header">
+        <h2 class="section-title">문제 목록</h2>
+        <div class="filter-bar">
+          <select id="filter-subject" onchange="applyFilters()">
+            <option value="">전체 과목</option>
+            <option value="수학1">수학Ⅰ</option>
+            <option value="수학2">수학Ⅱ</option>
+            <option value="미적분">미적분</option>
+            <option value="확률과통계">확률과통계</option>
+            <option value="기하">기하</option>
+          </select>
+          <select id="filter-type" onchange="applyFilters()">
+            <option value="">전체 유형</option>
+            <option value="수능">수능</option>
+            <option value="모의고사">모의고사</option>
+            <option value="내신">내신</option>
+          </select>
+          <select id="filter-year" onchange="applyFilters()">
+            <option value="">전체 연도</option>
+            <option value="2025">2025</option>
+            <option value="2024">2024</option>
+            <option value="2023">2023</option>
+            <option value="2022">2022</option>
+            <option value="2021">2021</option>
+            <option value="2020">2020</option>
+          </select>
+          <select id="filter-difficulty" onchange="applyFilters()">
+            <option value="">전체 난이도</option>
+            <option value="상">상</option>
+            <option value="중">중</option>
+            <option value="하">하</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="problems-list" class="problems-grid"></div>
+
+      <div class="pagination" id="pagination"></div>
+    </div>
+  </section>
+
+  <!-- Exam Modal -->
+  <div id="exam-modal" class="modal hidden">
+    <div class="modal-backdrop" onclick="closeModal()"></div>
+    <div class="modal-box">
+      <button class="modal-close" onclick="closeModal()">✕</button>
+      <div id="modal-content"></div>
+    </div>
+  </div>
+
+  <!-- Problem Modal -->
+  <div id="problem-modal" class="modal hidden">
+    <div class="modal-backdrop" onclick="closeProblemModal()"></div>
+    <div class="modal-box wide">
+      <button class="modal-close" onclick="closeProblemModal()">✕</button>
+      <div id="problem-modal-content"></div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <p>수학기출 아카이브 &copy; 2025 · 교육 목적으로 제작된 비영리 사이트입니다.</p>
+    </div>
+  </footer>
+
+  <script src="data.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
