@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SkyBlock 수익 계산기</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
+      background: #0d1117;
+      color: #c9d1d9;
+      min-height: 100vh;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #161b22, #1a2332);
+      border-bottom: 1px solid #21262d;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .header h1 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      background: linear-gradient(90deg, #58a6ff, #a371f7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .header .subtitle {
+      font-size: 0.65rem;
+      color: #8b949e;
+      margin-top: 2px;
+    }
+
+    .header-right { display: flex; align-items: center; gap: 8px; }
+
+    #lastUpdated { font-size: 0.65rem; color: #8b949e; }
+
+    .icon-btn {
+      background: #21262d;
+      border: 1px solid #30363d;
+      color: #8b949e;
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    .icon-btn:hover { color: #c9d1d9; border-color: #58a6ff; }
+    .icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .container { max-width: 720px; margin: 0 auto; padding: 14px 12px; }
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: #161b22;
+      border: 1px solid #21262d;
+      border-radius: 10px;
+      padding: 4px;
+      margin-bottom: 12px;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 9px 8px;
+      background: none;
+      border: none;
+      border-radius: 7px;
+      color: #8b949e;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .tab.active { background: #21262d; color: #58a6ff; }
+    .tab:hover:not(.active) { color: #c9d1d9; background: #1c2128; }
+
+    .controls {
+      background: #161b22;
+      border: 1px solid #21262d;
+      border-radius: 10px;
+      padding: 12px 16px;
+      margin-bottom: 12px;
+    }
+
+    .control-label {
+      font-size: 0.75rem;
+      color: #8b949e;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    .fortune-row { display: flex; align-items: center; gap: 10px; }
+
+    input[type="range"] {
+      flex: 1;
+      accent-color: #58a6ff;
+      cursor: pointer;
+    }
+
+    .fortune-value {
+      min-width: 36px;
+      text-align: right;
+      font-weight: 700;
+      color: #58a6ff;
+      font-size: 0.88rem;
+    }
+
+    .multiplier-badge {
+      background: #1c2128;
+      border: 1px solid #30363d;
+      border-radius: 5px;
+      padding: 3px 8px;
+      font-size: 0.72rem;
+      color: #a371f7;
+      white-space: nowrap;
+    }
+
+    /* Table */
+    .table-header {
+      display: grid;
+      grid-template-columns: 30px 1fr 88px 100px 80px;
+      padding: 6px 12px;
+      font-size: 0.68rem;
+      color: #6e7681;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 3px;
+    }
+    .table-header span:nth-child(n+3) { text-align: right; }
+
+    .item-row {
+      display: grid;
+      grid-template-columns: 30px 1fr 88px 100px 80px;
+      align-items: center;
+      padding: 11px 12px;
+      background: #161b22;
+      border: 1px solid #21262d;
+      border-radius: 8px;
+      margin-bottom: 4px;
+      transition: border-color 0.15s;
+    }
+    .item-row:hover { border-color: #388bfd50; }
+
+    .rank { font-size: 0.9rem; font-weight: 700; color: #6e7681; }
+
+    .item-name {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.82rem;
+      font-weight: 500;
+    }
+    .item-icon { font-size: 1.05em; width: 20px; text-align: center; }
+
+    .price-cell { text-align: right; font-size: 0.78rem; color: #e3b341; }
+    .drops-cell { text-align: right; font-size: 0.78rem; color: #8b949e; }
+    .coins-cell { text-align: right; }
+    .coins-value { font-size: 0.88rem; font-weight: 700; color: #3fb950; }
+
+    .bar-wrap {
+      grid-column: 1 / -1;
+      padding: 0 0 0 30px;
+      margin-top: -2px;
+      margin-bottom: 2px;
+    }
+    .bar-track { height: 4px; background: #21262d; border-radius: 2px; }
+    .bar-fill { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
+
+    .no-price { color: #484f58; font-size: 0.75rem; }
+
+    /* State screens */
+    .loading, .error-box {
+      text-align: center;
+      padding: 48px 20px;
+      color: #8b949e;
+      font-size: 0.88rem;
+    }
+    .spinner {
+      display: inline-block;
+      width: 22px; height: 22px;
+      border: 3px solid #21262d;
+      border-top-color: #58a6ff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 10px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error-box {
+      background: #1a1a1f;
+      border: 1px solid #f8514940;
+      border-radius: 8px;
+      color: #f85149;
+      line-height: 1.6;
+    }
+    .error-box a { color: #58a6ff; text-decoration: none; }
+
+    .top1 { color: #f0c040; }
+    .top2 { color: #c0c0c0; }
+    .top3 { color: #cd7f32; }
+
+    /* Key Modal */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 16px;
+    }
+    .modal-overlay.hidden { display: none; }
+
+    .modal {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 24px;
+      width: 100%;
+      max-width: 400px;
+    }
+    .modal h2 { font-size: 1rem; margin-bottom: 10px; color: #e6edf3; }
+    .modal p { font-size: 0.8rem; color: #8b949e; margin-bottom: 16px; line-height: 1.6; }
+    .modal a { color: #58a6ff; }
+
+    .key-input-row { display: flex; gap: 8px; margin-bottom: 8px; }
+
+    .key-input {
+      flex: 1;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 8px 10px;
+      color: #c9d1d9;
+      font-size: 0.78rem;
+      font-family: monospace;
+    }
+    .key-input:focus { outline: none; border-color: #58a6ff; }
+
+    .save-btn {
+      background: #238636;
+      border: 1px solid #2ea043;
+      color: #fff;
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .save-btn:hover { background: #2ea043; }
+
+    .key-status { font-size: 0.73rem; color: #8b949e; }
+
+    .key-badge {
+      font-size: 0.7rem;
+      background: #1c2128;
+      border: 1px solid #30363d;
+      border-radius: 5px;
+      padding: 3px 8px;
+      color: #8b949e;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .key-badge.set { border-color: #2ea04340; color: #3fb950; }
+
+    /* Mobile layout: 컬럼 줄이기 */
+    @media (max-width: 480px) {
+      .table-header { grid-template-columns: 28px 1fr 90px 90px; }
+      .table-header span:nth-child(4) { display: none; }
+      .item-row { grid-template-columns: 28px 1fr 90px 90px; }
+      .drops-cell { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>⛏️ SkyBlock 수익 계산기</h1>
+    <div class="subtitle">베이자 실시간 가격 기반 농사/광질/벌목 추천</div>
+  </div>
+  <div class="header-right">
+    <span id="lastUpdated"></span>
+    <button class="key-badge" id="keyBadge" onclick="openKeyModal()">🔑 키 없음</button>
+    <button class="icon-btn" id="refreshBtn" onclick="refreshData()" title="새로고침">🔄</button>
+  </div>
+</div>
+
+<div class="container">
+  <div class="tabs">
+    <button class="tab active" data-tab="farming" onclick="switchTab(this,'farming')">🌾 농사</button>
+    <button class="tab" data-tab="mining" onclick="switchTab(this,'mining')">⛏️ 광질</button>
+    <button class="tab" data-tab="logging" onclick="switchTab(this,'logging')">🪓 벌목</button>
+  </div>
+
+  <div class="controls">
+    <span class="control-label" id="fortuneLabel">농사 행운 (Farming Fortune)</span>
+    <div class="fortune-row">
+      <input type="range" id="fortuneSlider" min="0" max="800" value="0"
+             oninput="updateFortune(this.value)">
+      <span class="fortune-value" id="fortuneDisplay">0</span>
+      <span class="multiplier-badge" id="fortuneMultiplier">×1.0배</span>
+    </div>
+  </div>
+
+  <div id="content">
+    <div class="loading"><div class="spinner"></div><div>로딩 중...</div></div>
+  </div>
+</div>
+
+<!-- API Key Modal -->
+<div class="modal-overlay hidden" id="keyModal" onclick="handleOverlayClick(event)">
+  <div class="modal">
+    <h2>🔑 Hypixel API 키 설정</h2>
+    <p>
+      베이자 가격 조회를 위해 API 키가 필요해요.<br>
+      무료 발급: <a href="https://developer.hypixel.net/" target="_blank">developer.hypixel.net</a>
+      (마인크래프트 계정으로 로그인 후 Generate Key)<br><br>
+      키는 이 기기에만 저장되고 외부로 전송되지 않아요.
+    </p>
+    <div class="key-input-row">
+      <input class="key-input" id="keyInput" type="password"
+             placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+             onkeydown="if(event.key==='Enter')saveKey()">
+      <button class="save-btn" onclick="saveKey()">저장</button>
+    </div>
+    <div class="key-status" id="keyStatus"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const CATEGORIES = {
+  farming: {
+    label: '농사 행운 (Farming Fortune)',
+    maxFortune: 800,
+    items: [
+      { id: 'SUGAR_CANE',          alt: [],              name: '사탕수수',      icon: '🌿', base: 15000 },
+      { id: 'CACTUS',              alt: [],              name: '선인장',        icon: '🌵', base: 10000 },
+      { id: 'COCOA_BEANS',         alt: [],              name: '코코아 콩',     icon: '🟫', base: 8000  },
+      { id: 'WHEAT',               alt: [],              name: '밀',            icon: '🌾', base: 7000  },
+      { id: 'CARROT_ITEM',         alt: ['CARROT'],      name: '당근',          icon: '🥕', base: 7000  },
+      { id: 'POTATO_ITEM',         alt: ['POTATO'],      name: '감자',          icon: '🥔', base: 7000  },
+      { id: 'PUMPKIN',             alt: [],              name: '호박',          icon: '🎃', base: 1500  },
+      { id: 'MELON',               alt: [],              name: '수박',          icon: '🍉', base: 12000 },
+      { id: 'MUSHROOM_COLLECTION', alt: ['RED_MUSHROOM'],name: '빨간 버섯',     icon: '🍄', base: 3000  },
+      { id: 'NETHER_STALK',        alt: ['NETHER_WART'], name: '네더 사마귀',   icon: '🟢', base: 10000 },
+    ]
+  },
+  mining: {
+    label: '광질 행운 (Mining Fortune)',
+    maxFortune: 500,
+    items: [
+      { id: 'MITHRIL_ORE',  alt: [],  name: '미스릴 광석',   icon: '💠', base: 700   },
+      { id: 'TITANIUM_ORE', alt: [],  name: '티타늄 광석',   icon: '🔩', base: 80    },
+      { id: 'HARD_STONE',   alt: [],  name: '단단한 돌',     icon: '🪨', base: 30000 },
+      { id: 'DIAMOND',      alt: [],  name: '다이아몬드',    icon: '💎', base: 800   },
+      { id: 'EMERALD',      alt: [],  name: '에메랄드',      icon: '💚', base: 700   },
+      { id: 'GOLD_INGOT',   alt: [],  name: '금 주괴',       icon: '🟡', base: 1000  },
+      { id: 'IRON_INGOT',   alt: [],  name: '철 주괴',       icon: '⚙️', base: 2000  },
+      { id: 'QUARTZ',       alt: [],  name: '석영',          icon: '🔷', base: 4000  },
+      { id: 'REDSTONE',     alt: [],  name: '레드스톤',      icon: '🔴', base: 6000  },
+      { id: 'LAPIS_LAZULI', alt: [],  name: '청금석',        icon: '🔵', base: 5000  },
+      { id: 'COAL',         alt: [],  name: '석탄',          icon: '⬛', base: 3000  },
+      { id: 'SULPHUR',      alt: [],  name: '황 (크림슨)',   icon: '🌕', base: 2000  },
+      { id: 'OBSIDIAN',     alt: [],  name: '흑요석',        icon: '🟣', base: 500   },
+    ]
+  },
+  logging: {
+    label: '채집 행운 (Foraging Fortune)',
+    maxFortune: 500,
+    items: [
+      { id: 'JUNGLE_LOG',   alt: ['LOG:3'],   name: '정글나무',      icon: '🪵', base: 15000 },
+      { id: 'OAK_LOG',      alt: ['LOG'],     name: '참나무',        icon: '🪵', base: 12000 },
+      { id: 'BIRCH_LOG',    alt: ['LOG:2'],   name: '자작나무',      icon: '🪵', base: 12000 },
+      { id: 'SPRUCE_LOG',   alt: ['LOG:1'],   name: '가문비나무',    icon: '🪵', base: 10000 },
+      { id: 'DARK_OAK_LOG', alt: ['LOG_2:1'], name: '짙은 참나무',  icon: '🪵', base: 10000 },
+      { id: 'ACACIA_LOG',   alt: ['LOG_2'],   name: '아카시아',      icon: '🪵', base: 9000  },
+    ]
+  }
+};
+
+let currentTab = 'farming';
+let fortuneValues = { farming: 0, mining: 0, logging: 0 };
+let bazaarData = null;
+let apiKey = localStorage.getItem('hypixel_key') || '';
+
+/* ── Key modal ── */
+function openKeyModal() {
+  document.getElementById('keyModal').classList.remove('hidden');
+  document.getElementById('keyInput').value = apiKey;
+  document.getElementById('keyStatus').textContent = '';
+  setTimeout(() => document.getElementById('keyInput').focus(), 100);
+}
+
+function handleOverlayClick(e) {
+  if (e.target === e.currentTarget && apiKey) {
+    document.getElementById('keyModal').classList.add('hidden');
+  }
+}
+
+function saveKey() {
+  const val = document.getElementById('keyInput').value.trim();
+  if (!val) { document.getElementById('keyStatus').textContent = '⚠️ 키를 입력해주세요.'; return; }
+  apiKey = val;
+  localStorage.setItem('hypixel_key', val);
+  document.getElementById('keyModal').classList.add('hidden');
+  updateKeyBadge();
+  refreshData();
+}
+
+function updateKeyBadge() {
+  const b = document.getElementById('keyBadge');
+  if (apiKey) { b.textContent = '🔑 키 설정됨'; b.classList.add('set'); }
+  else         { b.textContent = '🔑 키 없음';  b.classList.remove('set'); }
+}
+
+/* ── Data ── */
+function getPrice(item, products) {
+  for (const id of [item.id, ...item.alt]) {
+    const p = products[id];
+    if (!p) continue;
+    // v2 has p.sellPrice directly; v1 uses quick_status
+    const price = p.sellPrice ?? p.quick_status?.sellPrice;
+    if (price > 0) return price;
+  }
+  return null;
+}
+
+async function refreshData() {
+  const btn = document.getElementById('refreshBtn');
+  btn.disabled = true;
+
+  if (!apiKey) {
+    document.getElementById('content').innerHTML = `
+      <div class="error-box">
+        🔑 API 키를 먼저 설정해주세요.<br><br>
+        우측 상단 <strong>🔑 키 없음</strong>을 눌러 키를 입력하세요.<br>
+        키 무료 발급: <a href="https://developer.hypixel.net/" target="_blank">developer.hypixel.net</a>
+      </div>`;
+    btn.disabled = false;
+    return;
+  }
+
+  try {
+    // v2 API: API-Key 헤더 방식
+    const res = await fetch('https://api.hypixel.net/v2/skyblock/bazaar', {
+      headers: { 'API-Key': apiKey }
+    });
+
+    if (res.status === 403) {
+      document.getElementById('keyStatus') && (document.getElementById('keyStatus').textContent = '');
+      throw new Error('API 키가 유효하지 않습니다. 키를 다시 확인해주세요.');
+    }
+    if (!res.ok) throw new Error(`API 오류 (${res.status})`);
+
+    const data = await res.json();
+    if (!data.success) throw new Error(data.cause || '알 수 없는 오류');
+
+    bazaarData = data;
+    const time = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+    document.getElementById('lastUpdated').textContent = time + ' 기준';
+    render();
+  } catch (err) {
+    if (!bazaarData) {
+      document.getElementById('content').innerHTML =
+        `<div class="error-box">❌ ${err.message}</div>`;
+    }
+    console.error(err);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* ── Render ── */
+function fmt(n) {
+  if (n >= 1e6) return (n/1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return (n/1e3).toFixed(1) + 'K';
+  return Math.round(n).toLocaleString('ko-KR');
+}
+
+function fmtPrice(n) {
+  return n >= 1000
+    ? n.toLocaleString('ko-KR', { maximumFractionDigits: 0 })
+    : n.toFixed(1);
+}
+
+function rankIcon(r) {
+  if (r === 1) return '<span class="top1">🥇</span>';
+  if (r === 2) return '<span class="top2">🥈</span>';
+  if (r === 3) return '<span class="top3">🥉</span>';
+  return `<span style="color:#6e7681;font-size:.82rem">${r}</span>`;
+}
+
+function barColor(ratio) {
+  if (ratio >= 0.65) return '#3fb950';
+  if (ratio >= 0.35) return '#d29922';
+  return '#f85149';
+}
+
+function render() {
+  if (!bazaarData) return;
+  const cat = CATEGORIES[currentTab];
+  const fortune = fortuneValues[currentTab];
+  const products = bazaarData.products ?? {};
+
+  const rows = cat.items.map(item => {
+    const price = getPrice(item, products);
+    const drops = Math.round(item.base * (1 + fortune / 100));
+    const coinsHr = price !== null ? drops * price : null;
+    return { ...item, price, drops, coinsHr };
+  }).sort((a, b) => {
+    if (a.coinsHr === null && b.coinsHr === null) return 0;
+    if (a.coinsHr === null) return 1;
+    if (b.coinsHr === null) return -1;
+    return b.coinsHr - a.coinsHr;
+  });
+
+  const maxC = Math.max(...rows.map(r => r.coinsHr ?? 0), 1);
+
+  const header = `
+    <div class="table-header">
+      <span>#</span><span>아이템</span>
+      <span>개당</span><span>시간당 드롭</span><span>코인/시간</span>
+    </div>`;
+
+  const items = rows.map((item, i) => {
+    const rank = i + 1;
+    const priceCell = item.price !== null
+      ? `<span style="color:#e3b341">${fmtPrice(item.price)}c</span>`
+      : `<span class="no-price">-</span>`;
+    const coinsCell = item.coinsHr !== null
+      ? `<span class="coins-value">${fmt(item.coinsHr)}</span>`
+      : `<span class="no-price">-</span>`;
+    const ratio = item.coinsHr !== null ? item.coinsHr / maxC : 0;
+    const pct = (ratio * 100).toFixed(1);
+
+    return `
+      <div class="item-row">
+        <span class="rank">${rankIcon(rank)}</span>
+        <span class="item-name"><span class="item-icon">${item.icon}</span>${item.name}</span>
+        <span class="price-cell">${priceCell}</span>
+        <span class="drops-cell">${item.drops.toLocaleString('ko-KR')}</span>
+        <span class="coins-cell">${coinsCell}</span>
+        <div class="bar-wrap">
+          <div class="bar-track">
+            <div class="bar-fill" style="width:${pct}%;background:${barColor(ratio)}"></div>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('content').innerHTML = header + items;
+}
+
+/* ── Controls ── */
+function switchTab(btn, tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  const cat = CATEGORIES[tab];
+  document.getElementById('fortuneLabel').textContent = cat.label;
+  const slider = document.getElementById('fortuneSlider');
+  slider.max = cat.maxFortune;
+  slider.value = fortuneValues[tab];
+  setDisplay(fortuneValues[tab]);
+  render();
+}
+
+function updateFortune(v) {
+  fortuneValues[currentTab] = +v;
+  setDisplay(+v);
+  render();
+}
+
+function setDisplay(v) {
+  document.getElementById('fortuneDisplay').textContent = v;
+  document.getElementById('fortuneMultiplier').textContent = `×${(1 + v/100).toFixed(1)}배`;
+}
+
+/* ── Init ── */
+updateKeyBadge();
+if (apiKey) refreshData();
+else openKeyModal();
+
+setInterval(refreshData, 5 * 60 * 1000);
+</script>
+</body>
+</html>
