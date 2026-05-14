@@ -1,630 +1,810 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SkyBlock 수익 계산기</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
-      background: #0d1117; color: #c9d1d9; min-height: 100vh;
-    }
-
-    .header {
-      background: linear-gradient(135deg, #161b22, #1a2332);
-      border-bottom: 1px solid #21262d;
-      padding: 14px 16px;
-      display: flex; align-items: center; justify-content: space-between;
-      position: sticky; top: 0; z-index: 10;
-    }
-    .header h1 {
-      font-size: 1.1rem; font-weight: 700;
-      background: linear-gradient(90deg, #58a6ff, #a371f7);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-    }
-    .header .subtitle { font-size: 0.65rem; color: #8b949e; margin-top: 2px; }
-    .header-right { display: flex; align-items: center; gap: 8px; }
-    #lastUpdated { font-size: 0.65rem; color: #8b949e; }
-
-    .icon-btn {
-      background: #21262d; border: 1px solid #30363d;
-      color: #8b949e; height: 32px; padding: 0 10px;
-      border-radius: 6px; cursor: pointer; font-size: 0.8rem;
-      display: flex; align-items: center; gap: 4px; white-space: nowrap;
-      transition: all 0.2s;
-    }
-    .icon-btn:hover { color: #c9d1d9; border-color: #58a6ff; }
-    .icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .icon-btn.set { border-color: #2ea04340; color: #3fb950; }
-
-    .container { max-width: 720px; margin: 0 auto; padding: 14px 12px; }
-
-    .tabs {
-      display: flex; gap: 4px;
-      background: #161b22; border: 1px solid #21262d;
-      border-radius: 10px; padding: 4px; margin-bottom: 12px;
-    }
-    .tab {
-      flex: 1; padding: 9px 8px; background: none; border: none;
-      border-radius: 7px; color: #8b949e; font-size: 0.82rem;
-      font-weight: 600; cursor: pointer; transition: all 0.2s;
-    }
-    .tab.active { background: #21262d; color: #58a6ff; }
-    .tab:hover:not(.active) { color: #c9d1d9; background: #1c2128; }
-
-    .controls {
-      background: #161b22; border: 1px solid #21262d;
-      border-radius: 10px; padding: 12px 16px; margin-bottom: 12px;
-    }
-    .control-label { font-size: 0.75rem; color: #8b949e; margin-bottom: 8px; display: block; }
-    .fortune-row { display: flex; align-items: center; gap: 10px; }
-    input[type="range"] { flex: 1; accent-color: #58a6ff; cursor: pointer; }
-    .fortune-value { min-width: 36px; text-align: right; font-weight: 700; color: #58a6ff; font-size: 0.88rem; }
-    .multiplier-badge {
-      background: #1c2128; border: 1px solid #30363d;
-      border-radius: 5px; padding: 3px 8px; font-size: 0.72rem; color: #a371f7; white-space: nowrap;
-    }
-
-    .table-header {
-      display: grid; grid-template-columns: 30px 1fr 88px 100px 80px;
-      padding: 6px 12px; font-size: 0.68rem; color: #6e7681;
-      text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px;
-    }
-    .table-header span:nth-child(n+3) { text-align: right; }
-
-    .item-row {
-      display: grid; grid-template-columns: 30px 1fr 88px 100px 80px;
-      align-items: center; padding: 11px 12px;
-      background: #161b22; border: 1px solid #21262d;
-      border-radius: 8px; margin-bottom: 4px; transition: border-color 0.15s;
-    }
-    .item-row:hover { border-color: #388bfd50; }
-
-    .rank { font-size: 0.9rem; font-weight: 700; color: #6e7681; }
-    .item-name { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; font-weight: 500; }
-    .item-icon { font-size: 1.05em; width: 20px; text-align: center; }
-    .price-cell { text-align: right; font-size: 0.78rem; color: #e3b341; }
-    .drops-cell { text-align: right; font-size: 0.78rem; color: #8b949e; }
-    .coins-cell { text-align: right; }
-    .coins-value { font-size: 0.88rem; font-weight: 700; color: #3fb950; }
-
-    .bar-wrap { grid-column: 1 / -1; padding: 0 0 0 30px; margin-top: -2px; margin-bottom: 2px; }
-    .bar-track { height: 4px; background: #21262d; border-radius: 2px; }
-    .bar-fill { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
-
-    .no-price { color: #484f58; font-size: 0.75rem; }
-
-    .loading, .error-box {
-      text-align: center; padding: 48px 20px;
-      color: #8b949e; font-size: 0.88rem;
-    }
-    .spinner {
-      display: inline-block; width: 22px; height: 22px;
-      border: 3px solid #21262d; border-top-color: #58a6ff;
-      border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 10px;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .error-box {
-      background: #1a1a1f; border: 1px solid #f8514940;
-      border-radius: 8px; color: #f85149; line-height: 1.6;
-    }
-    .error-box a { color: #58a6ff; }
-
-    .top1 { color: #f0c040; }
-    .top2 { color: #c0c0c0; }
-    .top3 { color: #cd7f32; }
-
-    /* Modal */
-    .modal-overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.8);
-      display: flex; align-items: center; justify-content: center;
-      z-index: 100; padding: 16px;
-    }
-    .modal-overlay.hidden { display: none; }
-    .modal {
-      background: #161b22; border: 1px solid #30363d;
-      border-radius: 12px; padding: 24px; width: 100%; max-width: 400px;
-    }
-    .modal h2 { font-size: 1rem; margin-bottom: 8px; color: #e6edf3; }
-    .modal p { font-size: 0.8rem; color: #8b949e; margin-bottom: 16px; line-height: 1.6; }
-    .modal a { color: #58a6ff; }
-
-    .input-row { display: flex; gap: 8px; margin-bottom: 8px; }
-    .text-input {
-      flex: 1; background: #0d1117; border: 1px solid #30363d;
-      border-radius: 6px; padding: 9px 12px; color: #c9d1d9;
-      font-size: 0.85rem;
-    }
-    .text-input:focus { outline: none; border-color: #58a6ff; }
-    .confirm-btn {
-      background: #238636; border: 1px solid #2ea043; color: #fff;
-      padding: 9px 16px; border-radius: 6px; cursor: pointer;
-      font-size: 0.85rem; font-weight: 600; white-space: nowrap;
-    }
-    .confirm-btn:hover { background: #2ea043; }
-    .modal-status { font-size: 0.73rem; color: #8b949e; min-height: 18px; }
-
-    .profile-card {
-      background: #0d1117; border: 1px solid #2ea04340;
-      border-radius: 8px; padding: 12px 14px; margin-bottom: 12px;
-      display: flex; align-items: center; justify-content: space-between;
-    }
-    .profile-name { font-size: 0.88rem; font-weight: 600; color: #3fb950; }
-    .profile-profile { font-size: 0.72rem; color: #8b949e; margin-top: 2px; }
-    .fortune-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
-    .fortune-tag {
-      background: #1c2128; border: 1px solid #30363d;
-      border-radius: 4px; padding: 2px 7px; font-size: 0.7rem; color: #a371f7;
-    }
-
-    @media (max-width: 480px) {
-      .table-header { grid-template-columns: 28px 1fr 80px 80px; }
-      .table-header span:nth-child(4) { display: none; }
-      .item-row { grid-template-columns: 28px 1fr 80px 80px; }
-      .drops-cell { display: none; }
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SkyBlock 유틸리티 (한국어)</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans-serif;
+  background:#0d1117;color:#c9d1d9;min-height:100vh;
+  padding-bottom:72px;
+}
+.header{
+  background:linear-gradient(135deg,#161b22,#1a2332);
+  border-bottom:1px solid #21262d;
+  padding:14px 16px;text-align:center;
+  position:sticky;top:0;z-index:10;
+}
+.header h1{
+  font-size:1.25rem;font-weight:700;
+  background:linear-gradient(90deg,#58a6ff,#a78bfa);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.header p{font-size:.75rem;color:#8b949e;margin-top:2px;}
+.container{max-width:720px;margin:0 auto;padding:12px 12px 0;}
+.tab-content{display:none;}
+.tab-content.active{display:block;}
+.card{
+  background:#161b22;border:1px solid #21262d;
+  border-radius:10px;padding:14px;margin-bottom:12px;
+}
+.card h2{font-size:1rem;font-weight:600;margin-bottom:10px;color:#e6edf3;}
+.card h3{font-size:.875rem;font-weight:600;margin-bottom:8px;color:#8b949e;}
+label{display:block;font-size:.8rem;color:#8b949e;margin-bottom:4px;}
+input[type=number],input[type=text],select{
+  width:100%;padding:10px 12px;background:#0d1117;
+  border:1px solid #21262d;border-radius:8px;
+  color:#c9d1d9;font-size:.95rem;margin-bottom:8px;outline:none;
+  -webkit-appearance:none;appearance:none;
+}
+input[type=range]{width:100%;margin-bottom:8px;accent-color:#58a6ff;}
+input:focus,select:focus{border-color:#58a6ff;}
+.btn{
+  display:inline-block;padding:10px 18px;border:none;border-radius:8px;
+  cursor:pointer;font-size:.875rem;font-weight:600;transition:opacity .15s;
+}
+.btn:active{opacity:.75;}
+.btn-primary{background:#238636;color:#fff;}
+.btn-secondary{background:#21262d;color:#c9d1d9;border:1px solid #30363d;}
+.btn-group{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;}
+.stat-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:8px 0;border-bottom:1px solid #21262d;font-size:.875rem;
+}
+.stat-row:last-child{border-bottom:none;}
+.stat-label{color:#8b949e;}
+.stat-value{font-weight:600;color:#e6edf3;}
+.green{color:#3fb950!important;}
+.yellow{color:#d29922!important;}
+.red{color:#f85149!important;}
+.blue{color:#58a6ff!important;}
+.progress-bar{
+  height:8px;background:#21262d;border-radius:4px;overflow:hidden;margin:6px 0;
+}
+.progress-fill{height:100%;background:linear-gradient(90deg,#58a6ff,#a78bfa);border-radius:4px;transition:width .3s;}
+.sub-tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;}
+.sub-tab{
+  padding:6px 14px;border-radius:20px;border:1px solid #21262d;
+  background:#0d1117;color:#8b949e;cursor:pointer;font-size:.8rem;
+}
+.sub-tab.active{background:#1f3a5f;color:#58a6ff;border-color:#58a6ff;}
+.sub-content{display:none;}
+.sub-content.active{display:block;}
+.dungeon-table{width:100%;border-collapse:collapse;font-size:.8rem;}
+.dungeon-table th,.dungeon-table td{
+  padding:8px 6px;text-align:center;border-bottom:1px solid #21262d;
+}
+.dungeon-table th{color:#8b949e;font-weight:600;font-size:.75rem;}
+.dungeon-table tr:last-child td{border-bottom:none;}
+.floor-f{color:#58a6ff;}
+.floor-m{color:#a78bfa;}
+.class-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.class-card{
+  background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:10px;
+}
+.class-card .class-icon{font-size:1.4rem;display:block;margin-bottom:4px;}
+.class-card .class-name{font-size:.875rem;font-weight:700;color:#e6edf3;}
+.class-card .class-desc{font-size:.75rem;color:#8b949e;margin-top:3px;}
+.timer-value{
+  font-size:1.4rem;font-weight:700;color:#58a6ff;
+  font-variant-numeric:tabular-nums;letter-spacing:.03em;
+}
+.timer-label{font-size:.75rem;color:#8b949e;margin-bottom:4px;}
+.cookie-remaining{
+  font-size:2rem;font-weight:700;text-align:center;padding:10px 0;
+  font-variant-numeric:tabular-nums;
+}
+.alert-box{
+  background:#1a1e2e;border:1px solid #30363d;border-radius:8px;
+  padding:10px;font-size:.8rem;color:#8b949e;margin-top:6px;
+}
+/* bottom nav */
+.bottom-nav{
+  position:fixed;bottom:0;left:0;right:0;
+  background:#161b22;border-top:1px solid #21262d;
+  display:flex;z-index:20;
+}
+.nav-btn{
+  flex:1;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;padding:8px 4px;border:none;background:none;
+  cursor:pointer;color:#8b949e;font-size:.65rem;gap:2px;transition:color .15s;
+}
+.nav-btn .nav-icon{font-size:1.3rem;}
+.nav-btn.active{color:#58a6ff;}
+.badge{
+  display:inline-block;background:#1f3a5f;border-radius:4px;
+  padding:2px 6px;font-size:.75rem;color:#58a6ff;margin-left:4px;
+}
+</style>
 </head>
 <body>
-
 <div class="header">
-  <div>
-    <h1>⛏️ SkyBlock 수익 계산기</h1>
-    <div class="subtitle">베이자 실시간 가격 기반 농사/광질/벌목 추천</div>
-  </div>
-  <div class="header-right">
-    <span id="lastUpdated"></span>
-    <button class="icon-btn" id="profileBtn" onclick="openModal()">👤 유저 없음</button>
-    <button class="icon-btn" id="refreshBtn" onclick="refreshData()" title="새로고침">🔄</button>
-  </div>
+  <h1>⚔️ SkyBlock 유틸리티</h1>
+  <p>한국어 전용 · API 키 불필요</p>
 </div>
 
 <div class="container">
-  <div id="profileCard" style="display:none"></div>
+  <!-- TAB 1: 타이머 -->
+  <div id="tab-timer" class="tab-content active">
+    <!-- SkyBlock 날짜/시간 -->
+    <div class="card">
+      <h2>📅 SkyBlock 현재 시간</h2>
+      <div class="timer-label">현재 SkyBlock 날짜</div>
+      <div class="timer-value" id="sb-datetime">계산 중...</div>
+      <div style="font-size:.75rem;color:#8b949e;margin-top:4px;" id="sb-realtime"></div>
+    </div>
 
-  <div class="tabs">
-    <button class="tab active" data-tab="farming" onclick="switchTab(this,'farming')">🌾 농사</button>
-    <button class="tab" data-tab="mining" onclick="switchTab(this,'mining')">⛏️ 광질</button>
-    <button class="tab" data-tab="logging" onclick="switchTab(this,'logging')">🪓 벌목</button>
-  </div>
+    <!-- 제이콥 컨테스트 -->
+    <div class="card">
+      <h2>🌾 제이콥 컨테스트</h2>
+      <div class="timer-label">다음 컨테스트까지</div>
+      <div class="timer-value" id="jacob-timer">--:--</div>
+      <div class="alert-box" id="jacob-status">계산 중...</div>
+    </div>
 
-  <div class="controls">
-    <span class="control-label" id="fortuneLabel">농사 행운 (Farming Fortune)</span>
-    <div class="fortune-row">
-      <input type="range" id="fortuneSlider" min="0" max="800" value="0"
-             oninput="updateFortune(this.value)">
-      <span class="fortune-value" id="fortuneDisplay">0</span>
-      <span class="multiplier-badge" id="fortuneMultiplier">×1.0배</span>
+    <!-- 메이어 선거 -->
+    <div class="card">
+      <h2>🗳️ 메이어 선거</h2>
+      <div class="timer-label">다음 선거까지</div>
+      <div class="timer-value" id="mayor-timer">--</div>
+      <div style="font-size:.8rem;color:#8b949e;margin-top:4px;" id="mayor-detail"></div>
+    </div>
+
+    <!-- 쿠키 버프 타이머 -->
+    <div class="card">
+      <h2>🍪 쿠키 버프 타이머</h2>
+      <div class="btn-group">
+        <button class="btn btn-secondary" onclick="startCookie(240)">4시간</button>
+        <button class="btn btn-secondary" onclick="startCookie(360)">대 (6시간)</button>
+        <button class="btn btn-secondary" onclick="startCookie(60)">작 (1시간)</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <input type="number" id="cookie-custom" placeholder="분 직접 입력" style="margin:0;flex:1;">
+        <button class="btn btn-primary" onclick="startCookieCustom()">시작</button>
+      </div>
+      <div class="cookie-remaining" id="cookie-display" style="color:#3fb950;">--:--:--</div>
+      <div style="font-size:.75rem;color:#8b949e;text-align:center;" id="cookie-end-time"></div>
+      <button class="btn btn-secondary" style="width:100%;margin-top:8px;" onclick="clearCookie()">타이머 초기화</button>
     </div>
   </div>
 
-  <div id="content">
-    <div class="loading"><div class="spinner"></div><div>로딩 중...</div></div>
-  </div>
-</div>
-
-<!-- Username Modal -->
-<div class="modal-overlay" id="modal" onclick="handleOverlay(event)">
-  <div class="modal">
-    <h2>👤 마인크래프트 유저네임</h2>
-    <p>유저네임을 입력하면 스카이블록 프로필에서<br>농사/광질/벌목 행운을 자동으로 불러와요.</p>
-    <div class="input-row">
-      <input class="text-input" id="usernameInput" type="text"
-             placeholder="예: allulose_mal"
-             onkeydown="if(event.key==='Enter')loadProfile()">
-      <button class="confirm-btn" onclick="loadProfile()">불러오기</button>
+  <!-- TAB 2: 스킬 -->
+  <div id="tab-skill" class="tab-content">
+    <div class="card">
+      <h2>📊 스킬 XP 계산기</h2>
+      <label>스킬 선택</label>
+      <select id="skill-select" onchange="onSkillChange()">
+        <option value="farming">🌾 농사 (최대 60)</option>
+        <option value="mining">⛏️ 광질 (최대 60)</option>
+        <option value="combat">⚔️ 전투 (최대 60)</option>
+        <option value="foraging">🌲 채집 (최대 50)</option>
+        <option value="fishing">🎣 낚시 (최대 50)</option>
+        <option value="enchanting">✨ 마법 (최대 60)</option>
+        <option value="alchemy">⚗️ 연금 (최대 50)</option>
+      </select>
+      <label>현재 레벨: <span id="cur-level-label">0</span></label>
+      <input type="range" id="cur-level" min="0" max="60" value="0" oninput="onSkillCalc()">
+      <label>목표 레벨: <span id="tgt-level-label">30</span></label>
+      <input type="range" id="tgt-level" min="1" max="60" value="30" oninput="onSkillCalc()">
+      <label>시간당 XP (기본값: 스킬별 상이)</label>
+      <input type="number" id="skill-xph" value="500000" oninput="onSkillCalc()">
     </div>
-    <div class="modal-status" id="modalStatus"></div>
+    <div class="card" id="skill-result-card">
+      <h2>결과</h2>
+      <div class="stat-row"><span class="stat-label">필요 XP</span><span class="stat-value" id="r-xp-needed">--</span></div>
+      <div class="stat-row"><span class="stat-label">진행률</span><span class="stat-value" id="r-progress">--%</span></div>
+      <div class="progress-bar"><div class="progress-fill" id="r-progress-bar" style="width:0%"></div></div>
+      <div class="stat-row"><span class="stat-label">예상 시간</span><span class="stat-value" id="r-hours">--</span></div>
+      <div class="stat-row"><span class="stat-label">예상 일수</span><span class="stat-value" id="r-days">--</span></div>
+    </div>
   </div>
-</div>
+
+  <!-- TAB 3: 스탯 -->
+  <div id="tab-stat" class="tab-content">
+    <div class="sub-tabs">
+      <div class="sub-tab active" onclick="switchSub('stat','fortune')">🍀 포춘</div>
+      <div class="sub-tab" onclick="switchSub('stat','crit')">💥 크리티컬</div>
+      <div class="sub-tab" onclick="switchSub('stat','mining')">⛏️ 마이닝</div>
+    </div>
+
+    <!-- 포춘 -->
+    <div id="stat-fortune" class="sub-content active">
+      <div class="card">
+        <h2>🍀 포춘 계산기</h2>
+        <div class="sub-tabs" style="margin-bottom:10px;">
+          <div class="sub-tab active" onclick="switchSub('fortune-type','farming')">농사</div>
+          <div class="sub-tab" onclick="switchSub('fortune-type','mining2')">광질</div>
+          <div class="sub-tab" onclick="switchSub('fortune-type','foraging2')">채집</div>
+        </div>
+        <label>스킬 레벨 (기본 포춘: 레벨×4)</label>
+        <input type="number" id="fortune-skill" value="40" oninput="calcFortune()">
+        <label>장비 포춘</label>
+        <input type="number" id="fortune-gear" value="100" oninput="calcFortune()">
+        <label>펫 포춘</label>
+        <input type="number" id="fortune-pet" value="30" oninput="calcFortune()">
+        <label>기타 포춘</label>
+        <input type="number" id="fortune-misc" value="0" oninput="calcFortune()">
+        <label>기본 드롭 수 (시간당, 예: 2000)</label>
+        <input type="number" id="fortune-base-drops" value="2000" oninput="calcFortune()">
+      </div>
+      <div class="card">
+        <h2>결과</h2>
+        <div class="stat-row"><span class="stat-label">총 포춘</span><span class="stat-value green" id="f-total">--</span></div>
+        <div class="stat-row"><span class="stat-label">배율</span><span class="stat-value blue" id="f-multi">--</span></div>
+        <div class="stat-row"><span class="stat-label">시간당 예상 드롭</span><span class="stat-value green" id="f-drops">--</span></div>
+      </div>
+    </div>
+
+    <!-- 크리티컬 -->
+    <div id="stat-crit" class="sub-content">
+      <div class="card">
+        <h2>💥 크리티컬 계산기</h2>
+        <label>기본 공격력 (무기)</label>
+        <input type="number" id="crit-weapon" value="500" oninput="calcCrit()">
+        <label>힘 (Strength)</label>
+        <input type="number" id="crit-strength" value="200" oninput="calcCrit()">
+        <label>크리 확률 (%)</label>
+        <input type="number" id="crit-chance" value="80" min="0" max="100" oninput="calcCrit()">
+        <label>크리 데미지 (%)</label>
+        <input type="number" id="crit-damage" value="150" oninput="calcCrit()">
+      </div>
+      <div class="card">
+        <h2>결과</h2>
+        <div class="stat-row"><span class="stat-label">기본 히트</span><span class="stat-value" id="c-base">--</span></div>
+        <div class="stat-row"><span class="stat-label">크리 히트</span><span class="stat-value yellow" id="c-crit">--</span></div>
+        <div class="stat-row"><span class="stat-label">평균 데미지</span><span class="stat-value green" id="c-avg">--</span></div>
+      </div>
+    </div>
+
+    <!-- 마이닝 스피드 -->
+    <div id="stat-mining" class="sub-content">
+      <div class="card">
+        <h2>⛏️ 마이닝 스피드 계산기</h2>
+        <label>마이닝 스피드</label>
+        <input type="number" id="ms-speed" value="500" oninput="calcMining()">
+      </div>
+      <div class="card">
+        <h2>결과</h2>
+        <div class="stat-row"><span class="stat-label">블록당 채굴 시간</span><span class="stat-value" id="ms-time">--</span></div>
+        <div class="stat-row"><span class="stat-label">시간당 채굴 블록</span><span class="stat-value green" id="ms-blocks">--</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 4: 펫 -->
+  <div id="tab-pet" class="tab-content">
+    <div class="card">
+      <h2>🐾 펫 XP 계산기</h2>
+      <label>희귀도</label>
+      <select id="pet-rarity" onchange="calcPet()">
+        <option value="1">Common (×1)</option>
+        <option value="2">Uncommon (×2)</option>
+        <option value="3.5">Rare (×3.5)</option>
+        <option value="6">Epic (×6)</option>
+        <option value="9">Legendary (×9)</option>
+      </select>
+      <label>현재 레벨: <span id="pet-cur-label">1</span></label>
+      <input type="range" id="pet-cur" min="1" max="99" value="1" oninput="calcPet()">
+      <label>목표 레벨: <span id="pet-tgt-label">100</span></label>
+      <input type="range" id="pet-tgt" min="2" max="100" value="100" oninput="calcPet()">
+    </div>
+    <div class="card">
+      <h2>결과</h2>
+      <div class="stat-row"><span class="stat-label">필요 XP (희귀도 적용)</span><span class="stat-value green" id="pet-xp">--</span></div>
+      <div class="stat-row"><span class="stat-label">예상 비용 <span class="badge">대략</span></span><span class="stat-value yellow" id="pet-cost">--</span></div>
+      <div class="alert-box" style="margin-top:8px;">
+        💡 Pet XP Boost 기준: 250,000 XP = 약 100,000 코인 (시장가 변동 있음)
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 5: 던전 -->
+  <div id="tab-dungeon" class="tab-content">
+    <div class="card">
+      <h2>🏰 던전 권장 스탯</h2>
+      <table class="dungeon-table">
+        <thead>
+          <tr><th>층</th><th>체력</th><th>방어력</th><th>전투</th><th>Cata</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="floor-f">F1</td><td>500</td><td>100</td><td>15</td><td>0</td></tr>
+          <tr><td class="floor-f">F2</td><td>700</td><td>150</td><td>20</td><td>5</td></tr>
+          <tr><td class="floor-f">F3</td><td>1,000</td><td>200</td><td>25</td><td>8</td></tr>
+          <tr><td class="floor-f">F4</td><td>1,500</td><td>300</td><td>30</td><td>12</td></tr>
+          <tr><td class="floor-f">F5</td><td>2,000</td><td>400</td><td>35</td><td>16</td></tr>
+          <tr><td class="floor-f">F6</td><td>2,500</td><td>550</td><td>40</td><td>20</td></tr>
+          <tr><td class="floor-f">F7</td><td>3,500</td><td>700</td><td>45</td><td>24</td></tr>
+          <tr><td class="floor-m">M1</td><td>5,000</td><td>1,000</td><td>-</td><td>35</td></tr>
+          <tr><td class="floor-m">M2</td><td>6,000</td><td>1,200</td><td>-</td><td>40</td></tr>
+          <tr><td class="floor-m">M3</td><td>7,000</td><td>1,400</td><td>-</td><td>43</td></tr>
+          <tr><td class="floor-m">M4</td><td>8,000</td><td>1,600</td><td>-</td><td>45</td></tr>
+          <tr><td class="floor-m">M5</td><td>9,000</td><td>1,800</td><td>-</td><td>48</td></tr>
+          <tr><td class="floor-m">M6</td><td>10,000</td><td>2,000</td><td>-</td><td>50</td></tr>
+          <tr><td class="floor-m">M7</td><td>12,000</td><td>2,500</td><td>-</td><td>50</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h2>⚔️ 클래스 가이드</h2>
+      <div class="class-grid">
+        <div class="class-card">
+          <span class="class-icon">🗡️</span>
+          <div class="class-name">버서커</div>
+          <div class="class-desc">딜러 특화. 강한 공격력과 크리티컬 데미지. 파티 DPS 담당.</div>
+        </div>
+        <div class="class-card">
+          <span class="class-icon">🛡️</span>
+          <div class="class-name">탱커</div>
+          <div class="class-desc">방어·체력 특화. 파티 보호 및 몬스터 어그로 담당.</div>
+        </div>
+        <div class="class-card">
+          <span class="class-icon">🏹</span>
+          <div class="class-name">레인저</div>
+          <div class="class-desc">원거리 딜러. 빠른 공격 속도와 화살 데미지 특화.</div>
+        </div>
+        <div class="class-card">
+          <span class="class-icon">🔮</span>
+          <div class="class-name">마법사</div>
+          <div class="class-desc">마법 딜러. 마나(MP) 의존형, 광역 스킬 강력.</div>
+        </div>
+        <div class="class-card" style="grid-column:span 2;">
+          <span class="class-icon">⚕️</span>
+          <div class="class-name">힐러</div>
+          <div class="class-desc">파티 체력 회복 담당. 고난이도 던전에서 필수 역할. 부활 및 회복 스킬 보유.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div><!-- /container -->
+
+<!-- Bottom Nav -->
+<nav class="bottom-nav">
+  <button class="nav-btn active" onclick="switchTab('timer',this)">
+    <span class="nav-icon">⏱️</span><span>타이머</span>
+  </button>
+  <button class="nav-btn" onclick="switchTab('skill',this)">
+    <span class="nav-icon">📊</span><span>스킬</span>
+  </button>
+  <button class="nav-btn" onclick="switchTab('stat',this)">
+    <span class="nav-icon">✨</span><span>스탯</span>
+  </button>
+  <button class="nav-btn" onclick="switchTab('pet',this)">
+    <span class="nav-icon">🐾</span><span>펫</span>
+  </button>
+  <button class="nav-btn" onclick="switchTab('dungeon',this)">
+    <span class="nav-icon">⚔️</span><span>던전</span>
+  </button>
+</nav>
 
 <script>
-'use strict';
+// ─── CONSTANTS ────────────────────────────────────────────────────
+const SB_EPOCH = 1560275700000;
+const MS_PER_SB_DAY = 1200000; // 20 real minutes
+const SB_DAYS_PER_YEAR = 372;  // 12 * 31
+const SB_MONTHS = ['초봄','봄','늦봄','초여름','여름','늦여름','초가을','가을','늦가을','초겨울','겨울','늦겨울'];
+const SB_HOURS_PER_DAY = 24;
+const MS_PER_SB_HOUR = MS_PER_SB_DAY / SB_HOURS_PER_DAY; // 50000 ms
 
-/* ── Item data ─────────────────────────────────────────────────── */
-const CATEGORIES = {
-  farming: {
-    label: '농사 행운 (Farming Fortune)',
-    maxFortune: 800,
-    skillKey: 'farming',
-    items: [
-      { id: 'SUGAR_CANE',          alt: [],               name: '사탕수수',    icon: '🌿', base: 15000 },
-      { id: 'CACTUS',              alt: [],               name: '선인장',      icon: '🌵', base: 10000 },
-      { id: 'COCOA_BEANS',         alt: [],               name: '코코아 콩',   icon: '🟫', base: 8000  },
-      { id: 'WHEAT',               alt: [],               name: '밀',          icon: '🌾', base: 7000  },
-      { id: 'CARROT_ITEM',         alt: ['CARROT'],       name: '당근',        icon: '🥕', base: 7000  },
-      { id: 'POTATO_ITEM',         alt: ['POTATO'],       name: '감자',        icon: '🥔', base: 7000  },
-      { id: 'PUMPKIN',             alt: [],               name: '호박',        icon: '🎃', base: 1500  },
-      { id: 'MELON',               alt: [],               name: '수박',        icon: '🍉', base: 12000 },
-      { id: 'MUSHROOM_COLLECTION', alt: ['RED_MUSHROOM'], name: '빨간 버섯',   icon: '🍄', base: 3000  },
-      { id: 'NETHER_STALK',        alt: ['NETHER_WART'],  name: '네더 사마귀', icon: '🟢', base: 10000 },
-    ]
-  },
-  mining: {
-    label: '광질 행운 (Mining Fortune)',
-    maxFortune: 500,
-    skillKey: 'mining',
-    items: [
-      { id: 'MITHRIL_ORE',  alt: [],  name: '미스릴 광석',  icon: '💠', base: 700   },
-      { id: 'TITANIUM_ORE', alt: [],  name: '티타늄 광석',  icon: '🔩', base: 80    },
-      { id: 'HARD_STONE',   alt: [],  name: '단단한 돌',    icon: '🪨', base: 30000 },
-      { id: 'DIAMOND',      alt: [],  name: '다이아몬드',   icon: '💎', base: 800   },
-      { id: 'EMERALD',      alt: [],  name: '에메랄드',     icon: '💚', base: 700   },
-      { id: 'GOLD_INGOT',   alt: [],  name: '금 주괴',      icon: '🟡', base: 1000  },
-      { id: 'IRON_INGOT',   alt: [],  name: '철 주괴',      icon: '⚙️', base: 2000  },
-      { id: 'QUARTZ',       alt: [],  name: '석영',         icon: '🔷', base: 4000  },
-      { id: 'REDSTONE',     alt: [],  name: '레드스톤',     icon: '🔴', base: 6000  },
-      { id: 'LAPIS_LAZULI', alt: [],  name: '청금석',       icon: '🔵', base: 5000  },
-      { id: 'COAL',         alt: [],  name: '석탄',         icon: '⬛', base: 3000  },
-      { id: 'SULPHUR',      alt: [],  name: '황 (크림슨)',  icon: '🌕', base: 2000  },
-      { id: 'OBSIDIAN',     alt: [],  name: '흑요석',       icon: '🟣', base: 500   },
-    ]
-  },
-  logging: {
-    label: '채집 행운 (Foraging Fortune)',
-    maxFortune: 500,
-    skillKey: 'foraging',
-    items: [
-      { id: 'JUNGLE_LOG',   alt: ['LOG:3'],   name: '정글나무',     icon: '🪵', base: 15000 },
-      { id: 'OAK_LOG',      alt: ['LOG'],     name: '참나무',       icon: '🪵', base: 12000 },
-      { id: 'BIRCH_LOG',    alt: ['LOG:2'],   name: '자작나무',     icon: '🪵', base: 12000 },
-      { id: 'SPRUCE_LOG',   alt: ['LOG:1'],   name: '가문비나무',   icon: '🪵', base: 10000 },
-      { id: 'DARK_OAK_LOG', alt: ['LOG_2:1'], name: '짙은 참나무', icon: '🪵', base: 10000 },
-      { id: 'ACACIA_LOG',   alt: ['LOG_2'],   name: '아카시아',     icon: '🪵', base: 9000  },
-    ]
-  }
-};
+// Skill XP table (incremental per level, 60 entries, index 0 = lv0→1)
+const SKILL_XP = [
+  50,125,200,300,500,750,1000,1500,2000,3500,5000,7500,10000,15000,20000,30000,
+  50000,75000,100000,200000,300000,400000,500000,600000,700000,800000,900000,
+  1000000,1100000,1200000,1300000,1400000,1500000,1600000,1700000,1800000,1900000,
+  2000000,2100000,2200000,2300000,2400000,2500000,2600000,2750000,2900000,3100000,
+  3400000,3700000,4000000,4300000,4600000,4900000,5200000,5500000,5800000,6100000,
+  6400000,6700000,7000000
+];
 
-/* ── SkyBlock XP → level table (공통) ─────────────────────────── */
-const SKILL_XP = [50,125,200,300,500,750,1000,1500,2000,3500,5000,7500,10000,
-  15000,20000,30000,50000,75000,100000,200000,300000,400000,500000,600000,
-  700000,800000,900000,1000000,1100000,1200000,1300000,1400000,1500000,
-  1600000,1700000,1800000,1900000,2000000,2100000,2200000,2300000,2400000,
-  2500000,2600000,2750000,2900000,3100000,3400000,3700000,4000000,4300000,
-  4600000,4900000,5200000,5500000,5800000,6100000,6400000,6700000,7000000];
+const SKILL_MAX = {farming:60,mining:60,combat:60,foraging:50,fishing:50,enchanting:60,alchemy:50};
+const SKILL_DEFAULT_XPH = {farming:500000,mining:300000,combat:200000,foraging:150000,fishing:150000,enchanting:150000,alchemy:150000};
 
-function xpToLevel(xp) {
-  let lvl = 0, total = 0;
-  for (let i = 0; i < SKILL_XP.length; i++) {
-    total += SKILL_XP[i];
-    if (xp >= total) lvl = i + 1; else break;
-  }
-  return lvl;
+// Pet XP table (incremental, 100 entries, index 0 = lv0→1 means reaching lv1)
+const PET_XP = [
+  100,110,120,130,145,160,175,190,210,230,250,275,300,330,360,400,440,490,540,600,
+  660,730,800,880,960,1050,1150,1260,1380,1510,1650,1800,1960,2130,2310,2500,2700,
+  2920,3160,3420,3700,4000,4330,4690,5080,5500,6000,6500,7000,7500,8000,8500,9000,
+  9500,10000,10500,11000,11500,12000,12500,13000,13500,14000,14500,15000,16000,17000,
+  18000,19000,20000,21000,22500,24000,25500,27000,29000,31000,33000,35500,38000,
+  40500,43000,46000,49000,52500,56000,60000,64000,68500,73000,78000,83000,88000,
+  94000,100000,106000,113000,121000,129000,138000,148000
+];
+
+// ─── TAB / SUB-TAB SWITCHING ──────────────────────────────────────
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+  saveLS('activeTab', name);
 }
 
-// 스킬 레벨당 행운 보너스 (base only, 장비 제외)
-function levelToFortune(level) { return level * 4; }
+function switchSub(group, name) {
+  const parent = document.getElementById('stat-' + name) ||
+                 document.querySelector('#stat-fortune') ||
+                 document.querySelector('#stat-crit') ||
+                 document.querySelector('#stat-mining');
 
-/* ── API calls ──────────────────────────────────────────────────── */
-async function fetchBazaar() {
-  // GitHub Actions가 저장한 로컬 파일 읽기 (CORS 없음)
-  const res = await fetch('./bazaar.json?t=' + Date.now());
-  if (!res.ok) throw new Error(`bazaar.json 없음 (${res.status}) — 아래 설정 필요`);
-  return res.json();
-}
-
-async function fetchProfile(username) {
-  // SkyCrypt API 직접 호출
-  const res = await fetch(`https://sky.shiiyu.moe/api/v2/profile/${encodeURIComponent(username)}`);
-  if (res.status === 404) throw new Error('유저를 찾을 수 없어요.');
-  if (!res.ok) throw new Error(`SkyCrypt API 오류 (${res.status})`);
-  return res.json();
-}
-
-/* ── State ─────────────────────────────────────────────────────── */
-let currentTab  = 'farming';
-let fortuneValues = { farming: 0, mining: 0, logging: 0 };
-let bazaarData  = null;
-let playerInfo  = JSON.parse(localStorage.getItem('sb_player') || 'null');
-
-/* ── Modal ─────────────────────────────────────────────────────── */
-function openModal() {
-  document.getElementById('modal').classList.remove('hidden');
-  const inp = document.getElementById('usernameInput');
-  inp.value = playerInfo?.username || '';
-  document.getElementById('modalStatus').textContent = '';
-  setTimeout(() => inp.focus(), 100);
-}
-
-function handleOverlay(e) {
-  if (e.target === e.currentTarget && playerInfo) {
-    document.getElementById('modal').classList.add('hidden');
+  if (group === 'stat') {
+    document.querySelectorAll('#tab-stat > .sub-content').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('#tab-stat > .sub-tabs > .sub-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('stat-' + name).classList.add('active');
+    event.target.classList.add('active');
+  } else if (group === 'fortune-type') {
+    // just visual, no functional change needed for sub-tab inside fortune
+    document.querySelectorAll('#stat-fortune .sub-tabs .sub-tab').forEach(t => t.classList.remove('active'));
+    event.target.classList.add('active');
   }
 }
 
-async function loadProfile() {
-  const username = document.getElementById('usernameInput').value.trim();
-  if (!username) { setModalStatus('⚠️ 유저네임을 입력해주세요.'); return; }
+// ─── SKYBLOCK TIME ─────────────────────────────────────────────────
+function getSBTime(now) {
+  const elapsed = now - SB_EPOCH;
+  const totalSBDays = Math.floor(elapsed / MS_PER_SB_DAY);
+  const msInDay = elapsed % MS_PER_SB_DAY;
 
-  setModalStatus('🔍 프로필 불러오는 중...');
-  const btn = document.querySelector('.confirm-btn');
-  btn.disabled = true;
+  const sbYear = Math.floor(totalSBDays / SB_DAYS_PER_YEAR) + 1;
+  const dayOfYear = totalSBDays % SB_DAYS_PER_YEAR;
+  const monthIdx = Math.floor(dayOfYear / 31);
+  const dayOfMonth = (dayOfYear % 31) + 1;
 
-  try {
-    const data = await fetchProfile(username);
-    const parsed = parseSkyCryptProfile(data, username);
+  // SB time within the day
+  const sbSecondsInDay = Math.floor(msInDay / (MS_PER_SB_DAY / 86400));
+  const sbH = Math.floor(sbSecondsInDay / 3600);
+  const sbM = Math.floor((sbSecondsInDay % 3600) / 60);
+  const sbS = sbSecondsInDay % 60;
 
-    playerInfo = parsed;
-    localStorage.setItem('sb_player', JSON.stringify(parsed));
-
-    // 행운 슬라이더 자동 설정
-    applyPlayerFortune(parsed);
-
-    document.getElementById('modal').classList.add('hidden');
-    renderProfileCard(parsed);
-    render();
-
-  } catch (err) {
-    setModalStatus('❌ ' + err.message);
-  } finally {
-    btn.disabled = false;
-  }
+  return { sbYear, monthIdx, dayOfMonth, sbH, sbM, sbS, msInDay, elapsed, totalSBDays };
 }
 
-function setModalStatus(msg) {
-  document.getElementById('modalStatus').textContent = msg;
+function pad2(n) { return String(n).padStart(2,'0'); }
+function fmtNum(n) { return n.toLocaleString('ko-KR'); }
+
+function updateSBTime() {
+  const now = Date.now();
+  const t = getSBTime(now);
+  const timeStr = `Year ${t.sbYear}, ${SB_MONTHS[t.monthIdx]} ${t.dayOfMonth}일 ${pad2(t.sbH)}:${pad2(t.sbM)}:${pad2(t.sbS)}`;
+  document.getElementById('sb-datetime').textContent = timeStr;
+  document.getElementById('sb-realtime').textContent = '실제 시간: ' + new Date(now).toLocaleTimeString('ko-KR');
+  updateJacob(now, t);
+  updateMayor(now, t);
 }
 
-function parseSkyCryptProfile(data, username) {
-  // SkyCrypt v2 응답 구조 파싱
-  let farmingXp = 0, miningXp = 0, foragingXp = 0;
-  let profileName = '';
+// ─── JACOB CONTEST ─────────────────────────────────────────────────
+// Contests at SkyBlock hours 2, 8, 14 each SkyBlock day
+// Each contest lasts 20 real minutes = 1 SkyBlock day? Actually each contest is at those hours.
+// Contest duration: traditionally ~20 real minutes (1 SB day? No — contests last until the hour changes)
+// Let's say contest active when sbH is 2, 8, or 14 (within that SB hour = 50000ms real)
+const JACOB_HOURS = [2, 8, 14];
 
-  try {
-    // profiles 객체에서 선택된 프로필 찾기
-    const profiles = data.profiles || {};
-    let selectedProfile = null;
+function updateJacob(now, t) {
+  const msInSBDay = (now - SB_EPOCH) % MS_PER_SB_DAY;
+  const fractionOfDay = msInSBDay / MS_PER_SB_DAY;
+  const sbHourNow = fractionOfDay * 24; // 0..24
 
-    for (const [, profile] of Object.entries(profiles)) {
-      if (profile.current) { selectedProfile = profile; break; }
+  // Check if we're in a contest hour (within sbH 2, 8, or 14 — a window of 1 SB hour = 50000ms)
+  const msPerSBHour = MS_PER_SB_DAY / 24; // 50000ms
+  let inContest = false;
+  let nextMs = Infinity;
+
+  for (const ch of JACOB_HOURS) {
+    const startFraction = ch / 24;
+    const endFraction = (ch + 1) / 24;
+    if (fractionOfDay >= startFraction && fractionOfDay < endFraction) {
+      inContest = true;
+      break;
     }
-    if (!selectedProfile) {
-      // current 없으면 첫 번째
-      selectedProfile = Object.values(profiles)[0];
+    // Time to next contest start
+    let toNext;
+    if (fractionOfDay < startFraction) {
+      toNext = (startFraction - fractionOfDay) * MS_PER_SB_DAY;
+    } else {
+      toNext = (1 - fractionOfDay + startFraction) * MS_PER_SB_DAY;
     }
+    if (toNext < nextMs) nextMs = toNext;
+  }
 
-    profileName = selectedProfile?.cute_name || '';
+  const statusEl = document.getElementById('jacob-status');
+  const timerEl = document.getElementById('jacob-timer');
 
-    // 해당 멤버 데이터 찾기
-    const members = selectedProfile?.members || {};
-    const memberData = Object.values(members)[0] || {};
+  if (inContest) {
+    timerEl.textContent = '진행 중!';
+    timerEl.className = 'timer-value green';
+    statusEl.textContent = '🌾 현재 제이콥 컨테스트가 진행 중입니다!';
+  } else {
+    timerEl.className = 'timer-value';
+    const totalSec = Math.ceil(nextMs / 1000);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    timerEl.textContent = `${pad2(m)}:${pad2(s)}`;
+    statusEl.textContent = `다음 컨테스트 시간: SkyBlock ${JACOB_HOURS.map(h=>h+'시').join(', ')}`;
+  }
+}
 
-    farmingXp  = memberData.experience_skill_farming  || 0;
-    miningXp   = memberData.experience_skill_mining   || 0;
-    foragingXp = memberData.experience_skill_foraging || 0;
+// ─── MAYOR ─────────────────────────────────────────────────────────
+// Mayor changes every SkyBlock year = 372 * 20 real minutes = 7440 real minutes
+const MS_PER_SB_YEAR = MS_PER_SB_DAY * SB_DAYS_PER_YEAR;
 
-  } catch (e) { /* 파싱 실패 시 0으로 유지 */ }
+function updateMayor(now) {
+  const elapsed = now - SB_EPOCH;
+  const msInYear = elapsed % MS_PER_SB_YEAR;
+  const msRemaining = MS_PER_SB_YEAR - msInYear;
 
-  const farmingLevel  = xpToLevel(farmingXp);
-  const miningLevel   = xpToLevel(miningXp);
-  const foragingLevel = xpToLevel(foragingXp);
+  const totalSec = Math.floor(msRemaining / 1000);
+  const d = Math.floor(totalSec / 86400);
+  const h = Math.floor((totalSec % 86400) / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
 
-  return {
-    username,
-    profileName,
-    farming:  levelToFortune(farmingLevel),
-    mining:   levelToFortune(miningLevel),
-    logging:  levelToFortune(foragingLevel),
-    levels: { farming: farmingLevel, mining: miningLevel, foraging: foragingLevel }
+  document.getElementById('mayor-timer').textContent = `${d}일 ${h}시간 ${m}분`;
+  const pct = Math.round((msInYear / MS_PER_SB_YEAR) * 100);
+  document.getElementById('mayor-detail').textContent = `현재 임기 ${pct}% 진행 (SkyBlock 연도 기준)`;
+}
+
+// ─── COOKIE TIMER ──────────────────────────────────────────────────
+let cookieInterval = null;
+
+function startCookie(minutes) {
+  const endTime = Date.now() + minutes * 60 * 1000;
+  saveLS('cookieEnd', endTime);
+  runCookieTimer();
+}
+
+function startCookieCustom() {
+  const val = parseInt(document.getElementById('cookie-custom').value);
+  if (!val || val <= 0) return;
+  startCookie(val);
+}
+
+function clearCookie() {
+  localStorage.removeItem('cookieEnd');
+  document.getElementById('cookie-display').textContent = '--:--:--';
+  document.getElementById('cookie-display').style.color = '#8b949e';
+  document.getElementById('cookie-end-time').textContent = '';
+}
+
+function runCookieTimer() {
+  const endTime = parseInt(loadLS('cookieEnd'));
+  if (!endTime) return;
+
+  const display = document.getElementById('cookie-display');
+  const endLabel = document.getElementById('cookie-end-time');
+
+  const update = () => {
+    const remaining = endTime - Date.now();
+    if (remaining <= 0) {
+      display.textContent = '완료! 🍪';
+      display.style.color = '#f85149';
+      endLabel.textContent = '쿠키 버프가 만료되었습니다.';
+      sendNotification('🍪 쿠키 버프 만료', '쿠키 버프가 만료되었습니다!');
+      return;
+    }
+    const h = Math.floor(remaining / 3600000);
+    const m = Math.floor((remaining % 3600000) / 60000);
+    const s = Math.floor((remaining % 60000) / 1000);
+    display.textContent = `${pad2(h)}:${pad2(m)}:${pad2(s)}`;
+    if (remaining < 300000) display.style.color = '#f85149';
+    else if (remaining < 900000) display.style.color = '#d29922';
+    else display.style.color = '#3fb950';
+    endLabel.textContent = '만료: ' + new Date(endTime).toLocaleTimeString('ko-KR');
   };
+  update();
 }
 
-function applyPlayerFortune(info) {
-  fortuneValues.farming = info.farming;
-  fortuneValues.mining  = info.mining;
-  fortuneValues.logging = info.logging;
-
-  const cat = CATEGORIES[currentTab];
-  const slider = document.getElementById('fortuneSlider');
-  slider.max   = cat.maxFortune;
-  slider.value = fortuneValues[currentTab];
-  setDisplay(fortuneValues[currentTab]);
-}
-
-function renderProfileCard(info) {
-  const card = document.getElementById('profileCard');
-  card.style.display = 'block';
-  card.innerHTML = `
-    <div class="profile-card">
-      <div>
-        <div class="profile-name">👤 ${info.username}</div>
-        <div class="profile-profile">${info.profileName ? '프로필: ' + info.profileName : ''} (스킬 기반 행운만 반영)</div>
-        <div class="fortune-tags">
-          <span class="fortune-tag">🌾 농사 Lv${info.levels.farming} → ${info.farming}</span>
-          <span class="fortune-tag">⛏️ 광질 Lv${info.levels.mining} → ${info.mining}</span>
-          <span class="fortune-tag">🪓 벌목 Lv${info.levels.foraging} → ${info.logging}</span>
-        </div>
-      </div>
-    </div>`;
-
-  const btn = document.getElementById('profileBtn');
-  btn.textContent = `👤 ${info.username}`;
-  btn.classList.add('set');
-}
-
-/* ── Bazaar ─────────────────────────────────────────────────────── */
-function getPrice(item, products) {
-  for (const id of [item.id, ...item.alt]) {
-    const p = products[id];
-    if (!p) continue;
-    const price = p.sellPrice ?? p.quick_status?.sellPrice;
-    if (price > 0) return price;
-  }
-  return null;
-}
-
-async function refreshData() {
-  const btn = document.getElementById('refreshBtn');
-  btn.disabled = true;
-
-  try {
-    const raw = await fetchBazaar();
-    bazaarData = normalizeBazaar(raw);
-
-    const time = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-    document.getElementById('lastUpdated').textContent = time + ' 기준';
-    render();
-
-  } catch (err) {
-    if (!bazaarData) {
-      document.getElementById('content').innerHTML = `
-        <div class="error-box">
-          ❌ 베이자 데이터 없음<br>
-          <small style="display:block;margin-top:10px;line-height:1.8;text-align:left">
-            GitHub Actions 설정이 필요해요:<br>
-            1. 레포 <strong>Settings → Secrets → Actions</strong><br>
-            2. <strong>HYPIXEL_API_KEY</strong> 이름으로 API 키 등록<br>
-            3. 레포 <strong>Actions 탭 → Update Bazaar Data → Run workflow</strong><br><br>
-            API 키 발급: <a href="https://developer.hypixel.net/" target="_blank">developer.hypixel.net</a>
-          </small>
-        </div>`;
-    }
-  } finally {
-    btn.disabled = false;
+function sendNotification(title, body) {
+  if (Notification.permission === 'granted') {
+    new Notification(title, { body });
   }
 }
 
-function normalizeBazaar(raw) {
-  // SkyCrypt v2/bazaar 응답 형식: { "ITEM_ID": { sellPrice, buyPrice, ... } }
-  // 또는 배열 형식에 따라 처리
-  const products = {};
+function requestNotificationPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
 
-  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
-    // 객체 형식: key = itemId
-    for (const [id, val] of Object.entries(raw)) {
-      if (val && typeof val === 'object') {
-        products[id] = {
-          sellPrice: val.sellPrice ?? val.sell_price ?? val.sellSummary?.[0]?.pricePerUnit ?? 0,
-          quick_status: {
-            sellPrice: val.sellPrice ?? val.sell_price ?? val.sellSummary?.[0]?.pricePerUnit ?? 0
-          }
-        };
-      }
-    }
-  } else if (Array.isArray(raw)) {
-    // 배열 형식
-    for (const item of raw) {
-      const id = item.tag || item.productId || item.id;
-      if (id) {
-        products[id] = {
-          sellPrice: item.sell ?? item.sellPrice ?? item.price ?? 0,
-          quick_status: { sellPrice: item.sell ?? item.sellPrice ?? item.price ?? 0 }
-        };
-      }
-    }
+// ─── SKILL CALCULATOR ──────────────────────────────────────────────
+function onSkillChange() {
+  const skill = document.getElementById('skill-select').value;
+  const max = SKILL_MAX[skill];
+  const curEl = document.getElementById('cur-level');
+  const tgtEl = document.getElementById('tgt-level');
+  curEl.max = max;
+  tgtEl.max = max;
+  if (parseInt(curEl.value) > max) curEl.value = 0;
+  if (parseInt(tgtEl.value) > max) tgtEl.value = max;
+  document.getElementById('skill-xph').value = SKILL_DEFAULT_XPH[skill];
+  saveLS('selectedSkill', skill);
+  onSkillCalc();
+}
+
+function onSkillCalc() {
+  const skill = document.getElementById('skill-select').value;
+  const maxLv = SKILL_MAX[skill];
+  let cur = parseInt(document.getElementById('cur-level').value) || 0;
+  let tgt = parseInt(document.getElementById('tgt-level').value) || 1;
+  if (cur >= tgt) { tgt = Math.min(cur + 1, maxLv); document.getElementById('tgt-level').value = tgt; }
+  document.getElementById('cur-level-label').textContent = cur;
+  document.getElementById('tgt-level-label').textContent = tgt;
+
+  // XP needed from cur to tgt
+  let xpNeeded = 0;
+  for (let i = cur; i < tgt && i < SKILL_XP.length; i++) {
+    xpNeeded += SKILL_XP[i];
   }
 
-  return { success: true, products };
+  // Total XP for full max
+  let totalMax = 0;
+  for (let i = 0; i < maxLv && i < SKILL_XP.length; i++) totalMax += SKILL_XP[i];
+  let xpAtCur = 0;
+  for (let i = 0; i < cur && i < SKILL_XP.length; i++) xpAtCur += SKILL_XP[i];
+  let xpAtTgt = 0;
+  for (let i = 0; i < tgt && i < SKILL_XP.length; i++) xpAtTgt += SKILL_XP[i];
+
+  const progressPct = totalMax > 0 ? Math.round((xpAtCur / xpAtTgt) * 100) : 0;
+
+  const xph = parseInt(document.getElementById('skill-xph').value) || 1;
+  const hours = xpNeeded / xph;
+  const days = hours / 24;
+
+  document.getElementById('r-xp-needed').textContent = fmtNum(Math.round(xpNeeded)) + ' XP';
+  document.getElementById('r-progress').textContent = progressPct + '%';
+  document.getElementById('r-progress-bar').style.width = Math.min(100, progressPct) + '%';
+  document.getElementById('r-hours').textContent = hours.toFixed(1) + ' 시간';
+  document.getElementById('r-days').textContent = days.toFixed(1) + ' 일';
+
+  saveLS('skillCur', cur);
+  saveLS('skillTgt', tgt);
 }
 
-/* ── Render ─────────────────────────────────────────────────────── */
-function fmt(n) {
-  if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
-  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
-  return Math.round(n).toLocaleString('ko-KR');
-}
-function fmtPrice(n) {
-  return n >= 1000 ? n.toLocaleString('ko-KR', { maximumFractionDigits: 0 }) : n.toFixed(1);
-}
-function rankIcon(r) {
-  if (r === 1) return '<span class="top1">🥇</span>';
-  if (r === 2) return '<span class="top2">🥈</span>';
-  if (r === 3) return '<span class="top3">🥉</span>';
-  return `<span style="color:#6e7681;font-size:.82rem">${r}</span>`;
-}
-function barColor(ratio) {
-  if (ratio >= 0.65) return '#3fb950';
-  if (ratio >= 0.35) return '#d29922';
-  return '#f85149';
-}
+// ─── FORTUNE CALCULATOR ────────────────────────────────────────────
+function calcFortune() {
+  const skill = parseInt(document.getElementById('fortune-skill').value) || 0;
+  const gear = parseInt(document.getElementById('fortune-gear').value) || 0;
+  const pet = parseInt(document.getElementById('fortune-pet').value) || 0;
+  const misc = parseInt(document.getElementById('fortune-misc').value) || 0;
+  const base = parseInt(document.getElementById('fortune-base-drops').value) || 0;
 
-function render() {
-  if (!bazaarData) return;
-  const cat     = CATEGORIES[currentTab];
-  const fortune = fortuneValues[currentTab];
-  const products = bazaarData.products ?? {};
+  const baseFortune = skill * 4;
+  const total = baseFortune + gear + pet + misc;
+  const multiplier = 1 + total / 100;
+  const drops = Math.round(base * multiplier);
 
-  const rows = cat.items.map(item => {
-    const price   = getPrice(item, products);
-    const drops   = Math.round(item.base * (1 + fortune / 100));
-    const coinsHr = price !== null ? drops * price : null;
-    return { ...item, price, drops, coinsHr };
-  }).sort((a, b) => {
-    if (a.coinsHr === null && b.coinsHr === null) return 0;
-    if (a.coinsHr === null) return 1;
-    if (b.coinsHr === null) return -1;
-    return b.coinsHr - a.coinsHr;
-  });
+  document.getElementById('f-total').textContent = total + ' (스킬기본 ' + baseFortune + ')';
+  document.getElementById('f-multi').textContent = 'x' + multiplier.toFixed(2);
+  document.getElementById('f-drops').textContent = fmtNum(drops) + ' /hr';
 
-  const maxC = Math.max(...rows.map(r => r.coinsHr ?? 0), 1);
-
-  const header = `<div class="table-header">
-    <span>#</span><span>아이템</span>
-    <span>개당</span><span>드롭/시간</span><span>코인/시간</span>
-  </div>`;
-
-  const items = rows.map((item, i) => {
-    const rank  = i + 1;
-    const pCell = item.price !== null
-      ? `<span style="color:#e3b341">${fmtPrice(item.price)}c</span>`
-      : `<span class="no-price">-</span>`;
-    const cCell = item.coinsHr !== null
-      ? `<span class="coins-value">${fmt(item.coinsHr)}</span>`
-      : `<span class="no-price">-</span>`;
-    const ratio = item.coinsHr !== null ? item.coinsHr / maxC : 0;
-
-    return `<div class="item-row">
-      <span class="rank">${rankIcon(rank)}</span>
-      <span class="item-name"><span class="item-icon">${item.icon}</span>${item.name}</span>
-      <span class="price-cell">${pCell}</span>
-      <span class="drops-cell">${item.drops.toLocaleString('ko-KR')}</span>
-      <span class="coins-cell">${cCell}</span>
-      <div class="bar-wrap">
-        <div class="bar-track">
-          <div class="bar-fill" style="width:${(ratio*100).toFixed(1)}%;background:${barColor(ratio)}"></div>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
-
-  document.getElementById('content').innerHTML = header + items;
+  saveLS('fortuneSkill', skill);
+  saveLS('fortuneGear', gear);
+  saveLS('fortunePet', pet);
+  saveLS('fortuneMisc', misc);
 }
 
-/* ── Controls ───────────────────────────────────────────────────── */
-function switchTab(btn, tab) {
-  currentTab = tab;
-  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-  const cat    = CATEGORIES[tab];
-  document.getElementById('fortuneLabel').textContent = cat.label;
-  const slider = document.getElementById('fortuneSlider');
-  slider.max   = cat.maxFortune;
-  slider.value = fortuneValues[tab];
-  setDisplay(fortuneValues[tab]);
-  render();
+// ─── CRIT CALCULATOR ───────────────────────────────────────────────
+function calcCrit() {
+  const weapon = parseFloat(document.getElementById('crit-weapon').value) || 0;
+  const strength = parseFloat(document.getElementById('crit-strength').value) || 0;
+  const critChancePct = parseFloat(document.getElementById('crit-chance').value) || 0;
+  const critDmgPct = parseFloat(document.getElementById('crit-damage').value) || 0;
+
+  const baseDmg = weapon * (1 + strength / 100);
+  const critHit = baseDmg * (1 + critDmgPct / 100);
+  const critChanceFrac = Math.min(critChancePct, 100) / 100;
+  const avg = baseDmg * (1 - critChanceFrac) + critHit * critChanceFrac;
+
+  document.getElementById('c-base').textContent = fmtNum(Math.round(baseDmg));
+  document.getElementById('c-crit').textContent = fmtNum(Math.round(critHit));
+  document.getElementById('c-avg').textContent = fmtNum(Math.round(avg));
 }
 
-function updateFortune(v) {
-  fortuneValues[currentTab] = +v;
-  setDisplay(+v);
-  render();
+// ─── MINING SPEED CALCULATOR ───────────────────────────────────────
+function calcMining() {
+  const speed = parseFloat(document.getElementById('ms-speed').value) || 1;
+  const breakTime = Math.max(30, Math.round(30000 / speed));
+  const blocksPerHour = Math.round(3600000 / breakTime);
+
+  document.getElementById('ms-time').textContent = breakTime.toLocaleString('ko-KR') + ' ms';
+  document.getElementById('ms-blocks').textContent = fmtNum(blocksPerHour) + ' 블록/hr';
 }
 
-function setDisplay(v) {
-  document.getElementById('fortuneDisplay').textContent = v;
-  document.getElementById('fortuneMultiplier').textContent = `×${(1 + v/100).toFixed(1)}배`;
+// ─── PET CALCULATOR ────────────────────────────────────────────────
+function calcPet() {
+  const mult = parseFloat(document.getElementById('pet-rarity').value) || 1;
+  let cur = parseInt(document.getElementById('pet-cur').value) || 1;
+  let tgt = parseInt(document.getElementById('pet-tgt').value) || 100;
+  if (cur >= tgt) { tgt = Math.min(cur + 1, 100); document.getElementById('pet-tgt').value = tgt; }
+
+  document.getElementById('pet-cur-label').textContent = cur;
+  document.getElementById('pet-tgt-label').textContent = tgt;
+
+  // PET_XP[i] = XP needed to go from level i to level i+1 (base)
+  // cur and tgt are 1-indexed levels
+  let baseXP = 0;
+  for (let i = cur - 1; i < tgt - 1 && i < PET_XP.length; i++) {
+    baseXP += PET_XP[i];
+  }
+  const totalXP = Math.round(baseXP * mult);
+  // Cost estimate: 250k XP per 100k coins
+  const coins = Math.round((totalXP / 250000) * 100000);
+
+  document.getElementById('pet-xp').textContent = fmtNum(totalXP) + ' XP';
+  document.getElementById('pet-cost').textContent = '약 ' + fmtNum(coins) + ' 코인';
+
+  saveLS('petCur', cur);
+  saveLS('petTgt', tgt);
+  saveLS('petRarity', document.getElementById('pet-rarity').value);
 }
 
-/* ── Init ───────────────────────────────────────────────────────── */
-if (playerInfo) {
-  applyPlayerFortune(playerInfo);
-  renderProfileCard(playerInfo);
-} else {
-  openModal();
+// ─── LOCALSTORAGE HELPERS ──────────────────────────────────────────
+function saveLS(key, val) {
+  try { localStorage.setItem('sb_' + key, val); } catch(e) {}
+}
+function loadLS(key) {
+  try { return localStorage.getItem('sb_' + key); } catch(e) { return null; }
 }
 
-refreshData();
-setInterval(refreshData, 5 * 60 * 1000);
+// ─── PERSISTENCE RESTORE ───────────────────────────────────────────
+function restoreState() {
+  // Active tab
+  const tab = loadLS('activeTab');
+  if (tab) {
+    const btn = document.querySelector(`.nav-btn[onclick="switchTab('${tab}',this)"]`);
+    if (btn) switchTab(tab, btn);
+  }
+
+  // Skill
+  const skill = loadLS('selectedSkill');
+  if (skill) {
+    document.getElementById('skill-select').value = skill;
+    onSkillChange();
+  }
+  const sc = loadLS('skillCur');
+  const st = loadLS('skillTgt');
+  if (sc) document.getElementById('cur-level').value = sc;
+  if (st) document.getElementById('tgt-level').value = st;
+  onSkillCalc();
+
+  // Fortune
+  if (loadLS('fortuneSkill')) document.getElementById('fortune-skill').value = loadLS('fortuneSkill');
+  if (loadLS('fortuneGear')) document.getElementById('fortune-gear').value = loadLS('fortuneGear');
+  if (loadLS('fortunePet')) document.getElementById('fortune-pet').value = loadLS('fortunePet');
+  if (loadLS('fortuneMisc')) document.getElementById('fortune-misc').value = loadLS('fortuneMisc');
+  calcFortune();
+
+  // Pet
+  if (loadLS('petRarity')) document.getElementById('pet-rarity').value = loadLS('petRarity');
+  if (loadLS('petCur')) document.getElementById('pet-cur').value = loadLS('petCur');
+  if (loadLS('petTgt')) document.getElementById('pet-tgt').value = loadLS('petTgt');
+  calcPet();
+
+  // Cookie
+  const cookieEnd = loadLS('cookieEnd');
+  if (cookieEnd && parseInt(cookieEnd) > Date.now()) {
+    runCookieTimer();
+  }
+
+  // Init other calculators
+  calcCrit();
+  calcMining();
+}
+
+// ─── MAIN LOOP ─────────────────────────────────────────────────────
+function mainLoop() {
+  updateSBTime();
+  // Cookie timer update
+  const cookieEnd = parseInt(loadLS('cookieEnd'));
+  if (cookieEnd && cookieEnd > Date.now()) {
+    runCookieTimer();
+  }
+}
+
+// ─── INIT ──────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  requestNotificationPermission();
+  restoreState();
+  setInterval(mainLoop, 1000);
+  mainLoop();
+});
 </script>
 </body>
 </html>
