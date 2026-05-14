@@ -296,12 +296,19 @@ function xpToLevel(xp) {
 // 스킬 레벨당 행운 보너스 (base only, 장비 제외)
 function levelToFortune(level) { return level * 4; }
 
-/* ── CORS 프록시를 통한 fetch ───────────────────────────────────── */
-// 브라우저에서 외부 API 직접 호출 시 CORS 차단되므로 프록시 경유
-async function proxiedFetch(url) {
-  const proxy = 'https://corsproxy.io/?url=';
-  const res = await fetch(proxy + encodeURIComponent(url));
-  if (!res.ok) throw new Error(`${res.status}`);
+/* ── API calls ──────────────────────────────────────────────────── */
+async function fetchBazaar() {
+  // GitHub Actions가 저장한 로컬 파일 읽기 (CORS 없음)
+  const res = await fetch('./bazaar.json?t=' + Date.now());
+  if (!res.ok) throw new Error(`bazaar.json 없음 (${res.status}) — 아래 설정 필요`);
+  return res.json();
+}
+
+async function fetchProfile(username) {
+  // SkyCrypt API 직접 호출
+  const res = await fetch(`https://sky.shiiyu.moe/api/v2/profile/${encodeURIComponent(username)}`);
+  if (res.status === 404) throw new Error('유저를 찾을 수 없어요.');
+  if (!res.ok) throw new Error(`SkyCrypt API 오류 (${res.status})`);
   return res.json();
 }
 
@@ -335,7 +342,7 @@ async function loadProfile() {
   btn.disabled = true;
 
   try {
-    const data = await proxiedFetch(`https://sky.shiiyu.moe/api/v2/profile/${encodeURIComponent(username)}`);
+    const data = await fetchProfile(username);
     const parsed = parseSkyCryptProfile(data, username);
 
     playerInfo = parsed;
@@ -452,17 +459,7 @@ async function refreshData() {
   btn.disabled = true;
 
   try {
-    // 베이자 데이터: SkyCrypt → CoflNet 순서로 시도
-    let raw = null;
-    const sources = [
-      'https://sky.shiiyu.moe/api/v2/bazaar',
-      'https://sky.coflnet.com/api/bazaar/tags/price/all',
-    ];
-    for (const src of sources) {
-      try { raw = await proxiedFetch(src); break; } catch (_) {}
-    }
-    if (!raw) throw new Error('모든 베이자 소스 실패');
-
+    const raw = await fetchBazaar();
     bazaarData = normalizeBazaar(raw);
 
     const time = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
@@ -471,12 +468,17 @@ async function refreshData() {
 
   } catch (err) {
     if (!bazaarData) {
-      document.getElementById('content').innerHTML =
-        `<div class="error-box">❌ 베이자 데이터 로드 실패<br>
-         <small style="margin-top:8px;display:block">
-           오류: ${err.message}<br>
-           잠시 후 🔄 새로고침을 눌러보세요.
-         </small></div>`;
+      document.getElementById('content').innerHTML = `
+        <div class="error-box">
+          ❌ 베이자 데이터 없음<br>
+          <small style="display:block;margin-top:10px;line-height:1.8;text-align:left">
+            GitHub Actions 설정이 필요해요:<br>
+            1. 레포 <strong>Settings → Secrets → Actions</strong><br>
+            2. <strong>HYPIXEL_API_KEY</strong> 이름으로 API 키 등록<br>
+            3. 레포 <strong>Actions 탭 → Update Bazaar Data → Run workflow</strong><br><br>
+            API 키 발급: <a href="https://developer.hypixel.net/" target="_blank">developer.hypixel.net</a>
+          </small>
+        </div>`;
     }
   } finally {
     btn.disabled = false;
