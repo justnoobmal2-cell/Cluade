@@ -1,5 +1,6 @@
 // Game skeleton: full-screen view, flat tile map, trees, camera, player
-// movement, boat visuals on water, zoomable minimap. No game systems yet.
+// movement, boat visuals on water, zoomable minimap, tree chopping for sticks,
+// and an item tech tree paid for with gathered materials.
 
 const MAP_SIZE = 1600;       // tiles per side
 const TILE = 16;             // sprite pixels per tile
@@ -113,8 +114,8 @@ function generateMap(seed) {
       // broken into groves with clearings between them.
       let density = 0;
       if ((y & 1) === 0 && ((x + ((y >> 1) & 1)) & 1) === 0) {
-        if (t === 3) density = valueNoise(x / 10, y / 10, seed + 8) > 0.5 ? 0.11 : 0.01;
-        else if (t === 2) density = 0.003;
+        if (t === 3) density = valueNoise(x / 10, y / 10, seed + 8) > 0.5 ? 0.055 : 0.005;
+        else if (t === 2) density = 0.0015;
       }
       deco[i] = hash(x, y, seed + 9) < density ? 1 : 0;
     }
@@ -140,6 +141,27 @@ function findSpawn() {
   return { x: c, y: c };
 }
 
+// ---------- items and tech ----------
+// The tech tree works like a crafting table: every node is an item, and
+// researching it spends materials. Add entries here to grow the tree.
+const ITEMS = {
+  stick: { name: '막대기' },
+};
+
+const TECHS = [
+  { id: 'workbench',    name: '작업대',      cost: { stick: 4 },  requires: [],               desc: '모든 제작의 시작점입니다.' },
+  { id: 'wood_axe',     name: '나무 도끼',   cost: { stick: 6 },  requires: ['workbench'],    desc: '나무가 2번 만에 쓰러지고, 막대기를 4개씩 얻습니다.' },
+  { id: 'wood_pickaxe', name: '나무 곡괭이', cost: { stick: 6 },  requires: ['workbench'],    desc: '효과는 아직 준비 중입니다.' },
+  { id: 'campfire',     name: '모닥불',      cost: { stick: 8 },  requires: ['workbench'],    desc: '효과는 아직 준비 중입니다.' },
+  { id: 'wood_spear',   name: '나무 창',     cost: { stick: 8 },  requires: ['wood_axe'],     desc: '효과는 아직 준비 중입니다.' },
+  { id: 'fence',        name: '나무 울타리', cost: { stick: 10 }, requires: ['wood_axe'],     desc: '효과는 아직 준비 중입니다.' },
+  { id: 'chest',        name: '나무 상자',   cost: { stick: 12 }, requires: ['wood_pickaxe'], desc: '효과는 아직 준비 중입니다.' },
+];
+const techById = new Map(TECHS.map((t) => [t.id, t]));
+
+const inv = { stick: 0 };
+const unlocked = new Set();
+
 // ---------- state ----------
 const player = { x: MAP_SIZE / 2, y: MAP_SIZE / 2, angle: Math.PI / 2, moving: false, onWater: false };
 const camera = { x: player.x, y: player.y, zoom: ZOOM_DEFAULT };
@@ -149,6 +171,11 @@ const STICK_RADIUS = 56;
 const wake = [];             // { x, y, age } ripples left behind the boat
 const WAKE_LIFE = 0.9;
 let wakeTimer = 0, clock = 0;
+const REACH = 2.5;           // how far the player can hit, in tiles
+const treeHits = new Map();  // tile index -> hits taken so far
+const treeShake = new Map(); // tile index -> clock time of the last hit
+const floats = [];           // { x, y, text, age } rising text in world space
+const FLOAT_LIFE = 1.1;
 
 // ---------- view ----------
 const canvas = document.getElementById('view');
@@ -177,7 +204,10 @@ function stepZoom(dir) {
 }
 
 // ---------- input ----------
-addEventListener('keydown', (e) => keys.add(e.code));
+addEventListener('keydown', (e) => {
+  keys.add(e.code);
+  if (e.code === 'Space' && !e.repeat) { e.preventDefault(); hitNearestTree(); }
+});
 addEventListener('keyup', (e) => keys.delete(e.code));
 addEventListener('blur', () => keys.clear());
 addEventListener('contextmenu', (e) => e.preventDefault());
@@ -198,7 +228,7 @@ canvas.addEventListener('pointerdown', (e) => {
   canvas.setPointerCapture(e.pointerId);
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (pointers.size === 1) {
-    stick = { id: e.pointerId, ox: e.clientX, oy: e.clientY, dx: 0, dy: 0 };
+    stick = { id: e.pointerId, ox: e.clientX, oy: e.clientY, dx: 0, dy: 0, t0: performance.now(), moved: 0 };
   } else if (pointers.size === 2) {
     stick = null;
     pinch = { dist: spread(pointers), zoom: camera.zoom };
@@ -214,6 +244,7 @@ canvas.addEventListener('pointermove', (e) => {
   } else if (stick && stick.id === e.pointerId) {
     let dx = (p.x - stick.ox) / STICK_RADIUS, dy = (p.y - stick.oy) / STICK_RADIUS;
     const len = Math.hypot(dx, dy);
+    stick.moved = Math.max(stick.moved, len * STICK_RADIUS);
     if (len > 1) { dx /= len; dy /= len; }
     stick.dx = dx; stick.dy = dy;
   }
@@ -221,7 +252,12 @@ canvas.addEventListener('pointermove', (e) => {
 
 function pointerEnd(e) {
   pointers.delete(e.pointerId);
-  if (stick && stick.id === e.pointerId) stick = null;
+  if (stick && stick.id === e.pointerId) {
+    // A short press that barely moved is a tap, not a joystick drag.
+    const tap = e.type === 'pointerup' && stick.moved < 12 && performance.now() - stick.t0 < 350;
+    stick = null;
+    if (tap) tapWorld(e.clientX, e.clientY);
+  }
   if (pointers.size < 2) pinch = null;
 }
 canvas.addEventListener('pointerup', pointerEnd);
@@ -340,12 +376,157 @@ onPress('mapin', () => setMapZoom(mapView.zoom * 2));
 onPress('mapout', () => setMapZoom(mapView.zoom / 2));
 onPress('mapclose', () => openMap(false));
 
+// ---------- chopping ----------
+function addFloat(x, y, text) {
+  floats.push({ x, y, text, age: 0 });
+}
+
+function hitTree(i) {
+  const tx = i % MAP_SIZE, ty = Math.floor(i / MAP_SIZE);
+  if (Math.hypot(tx + 0.5 - player.x, ty + 0.5 - player.y) > REACH) {
+    addFloat(player.x, player.y - 0.8, '너무 멀어요');
+    return;
+  }
+  const axe = unlocked.has('wood_axe');
+  const hits = (treeHits.get(i) || 0) + 1;
+  treeShake.set(i, clock);
+  if (hits < (axe ? 2 : 4)) { treeHits.set(i, hits); return; }
+  const gain = axe ? 4 : 2;
+  deco[i] = 0;
+  treeHits.delete(i);
+  treeShake.delete(i);
+  inv.stick += gain;
+  addFloat(tx + 0.5, ty - 0.5, `+${gain} ${ITEMS.stick.name}`);
+  refreshInventory();
+}
+
+// Tree whose sprite is under a screen point; the front-most one wins.
+function treeAtScreen(clientX, clientY) {
+  const t = TILE * pixelScale();
+  const wx = (clientX * dpr - canvas.width / 2) / t + camera.x;
+  const wy = (clientY * dpr - canvas.height / 2) / t + camera.y;
+  const tx = Math.floor(wx), ty = Math.floor(wy);
+  const halfW = TREE_W / TILE / 2, h = TREE_H / TILE;
+  for (let y = Math.min(MAP_SIZE - 1, ty + 2); y >= Math.max(0, ty); y--) {
+    for (let x = Math.max(0, tx - 1); x <= Math.min(MAP_SIZE - 1, tx + 1); x++) {
+      if (!deco[y * MAP_SIZE + x]) continue;
+      if (Math.abs(wx - (x + 0.5)) <= halfW && wy <= y + 1 && wy >= y + 1 - h) return y * MAP_SIZE + x;
+    }
+  }
+  return -1;
+}
+
+function tapWorld(clientX, clientY) {
+  const i = treeAtScreen(clientX, clientY);
+  if (i >= 0) hitTree(i);
+}
+
+function hitNearestTree() {
+  let best = -1, bestD = REACH;
+  const px = Math.floor(player.x), py = Math.floor(player.y), r = Math.ceil(REACH);
+  for (let y = Math.max(0, py - r); y <= Math.min(MAP_SIZE - 1, py + r); y++) {
+    for (let x = Math.max(0, px - r); x <= Math.min(MAP_SIZE - 1, px + r); x++) {
+      if (!deco[y * MAP_SIZE + x]) continue;
+      const d = Math.hypot(x + 0.5 - player.x, y + 0.5 - player.y);
+      if (d <= bestD) { bestD = d; best = y * MAP_SIZE + x; }
+    }
+  }
+  if (best >= 0) hitTree(best);
+}
+
+// ---------- inventory and tech tree UI ----------
+const stickCountEl = document.getElementById('stickCount');
+const techEl = document.getElementById('tech');
+const techTreeEl = document.getElementById('techtree');
+const techInfoEl = document.getElementById('techinfo');
+const NODE_W = 124, NODE_H = 52, COL_GAP = 56, ROW_GAP = 18, PAD = 20;
+let selectedTech = null;
+
+function refreshInventory() {
+  stickCountEl.textContent = inv.stick;
+  if (techEl.classList.contains('open')) renderTech();
+}
+
+const techState = (t) =>
+  unlocked.has(t.id) ? 'done' : t.requires.every((r) => unlocked.has(r)) ? 'open' : 'locked';
+const canAfford = (t) => Object.entries(t.cost).every(([k, n]) => inv[k] >= n);
+const costText = (t) => Object.entries(t.cost).map(([k, n]) => `${ITEMS[k].name} ${inv[k]}/${n}`).join(', ');
+
+// Column = how many prerequisites deep a tech is; rows fill in listing order.
+function layoutTech() {
+  const depth = new Map(), pos = new Map(), rows = [];
+  const depthOf = (t) => {
+    if (!depth.has(t.id)) depth.set(t.id, t.requires.length ? 1 + Math.max(...t.requires.map((r) => depthOf(techById.get(r)))) : 0);
+    return depth.get(t.id);
+  };
+  for (const t of TECHS) {
+    const c = depthOf(t);
+    rows[c] = rows[c] || 0;
+    pos.set(t.id, { x: PAD + c * (NODE_W + COL_GAP), y: PAD + rows[c]++ * (NODE_H + ROW_GAP) });
+  }
+  return { pos, w: PAD * 2 + rows.length * (NODE_W + COL_GAP) - COL_GAP, h: PAD * 2 + Math.max(...rows) * (NODE_H + ROW_GAP) - ROW_GAP };
+}
+
+function renderTech() {
+  const { pos, w, h } = layoutTech();
+  let lines = '';
+  for (const t of TECHS) {
+    for (const r of t.requires) {
+      const a = pos.get(r), b = pos.get(t.id);
+      const x1 = a.x + NODE_W, y1 = a.y + NODE_H / 2, x2 = b.x, y2 = b.y + NODE_H / 2, mx = (x1 + x2) / 2;
+      lines += `<path class="${unlocked.has(r) ? 'on' : ''}" d="M${x1} ${y1} H${mx} V${y2} H${x2}"/>`;
+    }
+  }
+  techTreeEl.style.width = w + 'px';
+  techTreeEl.style.height = h + 'px';
+  techTreeEl.innerHTML = `<svg width="${w}" height="${h}">${lines}</svg>` + TECHS.map((t) => {
+    const p = pos.get(t.id), st = techState(t);
+    const cls = `node ${st}${st === 'open' && canAfford(t) ? ' ready' : ''}${selectedTech === t.id ? ' sel' : ''}`;
+    const sub = st === 'done' ? '완료' : st === 'locked' ? '잠김' : costText(t);
+    return `<button class="${cls}" data-id="${t.id}" style="left:${p.x}px;top:${p.y}px"><b>${t.name}</b><span>${sub}</span></button>`;
+  }).join('');
+
+  const t = selectedTech && techById.get(selectedTech);
+  if (!t) { techInfoEl.innerHTML = '<p>아이템을 누르면 설명과 필요한 재료가 표시됩니다.</p>'; return; }
+  const st = techState(t);
+  const need = t.requires.filter((r) => !unlocked.has(r)).map((r) => techById.get(r).name).join(', ');
+  const status = st === 'done' ? '이미 연구한 아이템입니다.'
+    : st === 'locked' ? `먼저 필요한 아이템: ${need}`
+    : `필요한 재료: ${costText(t)}`;
+  const ok = st === 'open' && canAfford(t);
+  techInfoEl.innerHTML = `<div><b>${t.name}</b><p>${t.desc}</p><p>${status}</p></div>`
+    + (st === 'done' ? '' : `<button id="research" ${ok ? '' : 'disabled'}>연구하기</button>`);
+}
+
+function research(id) {
+  const t = techById.get(id);
+  if (!t || techState(t) !== 'open' || !canAfford(t)) return;
+  for (const [k, n] of Object.entries(t.cost)) inv[k] -= n;
+  unlocked.add(id);
+  refreshInventory();
+}
+
+function openTech(open) {
+  techEl.classList.toggle('open', open);
+  keys.clear();
+  if (open) renderTech();
+}
+
+techEl.addEventListener('click', (e) => {
+  const node = e.target.closest('.node');
+  if (node) { selectedTech = node.dataset.id; renderTech(); }
+  else if (e.target.id === 'research') research(selectedTech);
+});
+onPress('techbtn', () => openTech(true));
+onPress('techclose', () => openTech(false));
+
 // ---------- loop ----------
 const biomeEl = document.getElementById('biome');
 const coordsEl = document.getElementById('coords');
 
 function update(dt) {
   let dx = 0, dy = 0;
+  if (techEl.classList.contains('open')) keys.clear();
   if (keys.has('KeyW') || keys.has('ArrowUp')) dy -= 1;
   if (keys.has('KeyS') || keys.has('ArrowDown')) dy += 1;
   if (keys.has('KeyA') || keys.has('ArrowLeft')) dx -= 1;
@@ -365,6 +546,8 @@ function update(dt) {
   player.onWater = tileAt(player.x, player.y) === WATER;
 
   clock += dt;
+  for (const f of floats) f.age += dt;
+  while (floats.length && floats[0].age > FLOAT_LIFE) floats.shift();
   for (const w of wake) w.age += dt;
   while (wake.length && wake[0].age > WAKE_LIFE) wake.shift();
   wakeTimer -= dt;
@@ -465,10 +648,28 @@ function render() {
       // Trees standing in front of the player turn see-through so the player stays visible.
       const hide = nearRow && Math.abs(x - pcol) <= 1;
       if (hide) ctx.globalAlpha = 0.4;
-      ctx.drawImage(treeTex, ox + x * t - treeDx, oy + (y + 1) * t - TREE_H * p, TREE_W * p, TREE_H * p);
+      const hitAt = treeShake.get(row + x);
+      const shake = hitAt !== undefined && clock - hitAt < 0.25 ? Math.round(Math.sin((clock - hitAt) * 50) * 2) * p : 0;
+      ctx.drawImage(treeTex, ox + x * t - treeDx + shake, oy + (y + 1) * t - TREE_H * p, TREE_W * p, TREE_H * p);
       if (hide) ctx.globalAlpha = 1;
     }
   }
+
+  // Rising text such as "+2 막대기".
+  ctx.font = `700 ${Math.round(15 * dpr)}px system-ui, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.lineWidth = 3 * dpr;
+  ctx.lineJoin = 'round';
+  for (const f of floats) {
+    const k = f.age / FLOAT_LIFE;
+    ctx.globalAlpha = k < 0.6 ? 1 : (1 - k) / 0.4;
+    const fx = ox + f.x * t, fy = oy + (f.y - k * 1.2) * t;
+    ctx.strokeStyle = '#14181d';
+    ctx.strokeText(f.text, fx, fy);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(f.text, fx, fy);
+  }
+  ctx.globalAlpha = 1;
 
   if (stick) drawStick();
 
@@ -489,5 +690,6 @@ function frame(now) {
 generateMap(1337);
 Object.assign(player, findSpawn());
 buildMapImage();
+refreshInventory();
 resize();
 requestAnimationFrame(frame);

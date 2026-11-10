@@ -51,6 +51,48 @@
   body.mapopen #mapbar { display: flex; }
   #mapbar button { position: static; }
   #full { left: calc(var(--sl) + 8px); top: calc(var(--st) + 8px); }
+  #inv { left: calc(var(--sl) + 8px); top: calc(var(--st) + 56px); padding: 6px 10px; pointer-events: none; }
+  #inv b { color: #ffd400; margin-left: 4px; }
+  #techbtn { left: calc(var(--sl) + 8px); top: calc(var(--st) + 98px); width: auto; padding: 0 14px; font-size: 14px; }
+
+  #tech {
+    display: none; position: fixed; inset: 0; z-index: 10; flex-direction: column;
+    background: rgba(13, 16, 20, .95); color: #e8ecef;
+    font: 14px/1.4 system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    padding: var(--st) var(--sr) var(--sb) var(--sl);
+  }
+  #tech.open { display: flex; }
+  #tech header { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,.14); }
+  #tech header h1 { margin: 0; font-size: 17px; flex: 1; }
+  #tech header button { position: static; }
+  #techscroll { flex: 1; overflow: auto; -webkit-overflow-scrolling: touch; }
+  #techtree { position: relative; }
+  #techtree svg { position: absolute; left: 0; top: 0; }
+  #techtree path { fill: none; stroke: rgba(255,255,255,.22); stroke-width: 2; }
+  #techtree path.on { stroke: #6aa84f; }
+  .node {
+    position: absolute; width: 124px; height: 52px; box-sizing: border-box; padding: 4px 8px;
+    display: flex; flex-direction: column; justify-content: center; text-align: left;
+    background: #1b212b; color: inherit; font: inherit; cursor: pointer;
+    border: 2px solid rgba(255,255,255,.35); border-radius: 8px;
+  }
+  .node b { font-size: 14px; }
+  .node span { font-size: 11px; opacity: .75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .node.locked { opacity: .45; border-style: dashed; }
+  .node.ready { border-color: #ffd400; }
+  .node.done { border-color: #6aa84f; background: #1f3322; }
+  .node.sel { box-shadow: 0 0 0 3px rgba(255,255,255,.55); }
+  #techinfo {
+    display: flex; align-items: center; gap: 12px; min-height: 84px; box-sizing: border-box;
+    padding: 10px 12px; border-top: 1px solid rgba(255,255,255,.14); background: #141920;
+  }
+  #techinfo div { flex: 1; }
+  #techinfo p { margin: 2px 0 0; font-size: 13px; opacity: .8; }
+  #research {
+    padding: 10px 16px; font: inherit; font-weight: 700; color: #14181d; background: #ffd400;
+    border: 0; border-radius: 8px; cursor: pointer; white-space: nowrap;
+  }
+  #research:disabled { background: #4a4f58; color: #9aa0a9; cursor: default; }
   #zin  { right: calc(var(--sr) + 8px); bottom: calc(var(--sb) + 60px); }
   #zout { right: calc(var(--sr) + 8px); bottom: calc(var(--sb) + 12px); }
 </style>
@@ -65,6 +107,13 @@
   <button id="mapclose" class="panel" aria-label="지도 닫기">×</button>
 </div>
 <button id="full" class="panel" aria-label="전체 화면">⛶</button>
+<div id="inv" class="panel">막대기<b id="stickCount">0</b></div>
+<button id="techbtn" class="panel">테크</button>
+<div id="tech">
+  <header><h1>테크트리</h1><button id="techclose" class="panel" aria-label="닫기">×</button></header>
+  <div id="techscroll"><div id="techtree"></div></div>
+  <div id="techinfo"></div>
+</div>
 <button id="zin" class="panel" aria-label="확대">+</button>
 <button id="zout" class="panel" aria-label="축소">−</button>
 <script src="main.js"></script>
