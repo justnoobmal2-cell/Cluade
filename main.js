@@ -113,8 +113,8 @@ function generateMap(seed) {
       // broken into groves with clearings between them.
       let density = 0;
       if ((y & 1) === 0 && ((x + ((y >> 1) & 1)) & 1) === 0) {
-        if (t === 3) density = valueNoise(x / 10, y / 10, seed + 8) > 0.42 ? 0.55 : 0.06;
-        else if (t === 2) density = 0.02;
+        if (t === 3) density = valueNoise(x / 10, y / 10, seed + 8) > 0.5 ? 0.22 : 0.02;
+        else if (t === 2) density = 0.006;
       }
       deco[i] = hash(x, y, seed + 9) < density ? 1 : 0;
     }
