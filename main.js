@@ -54,17 +54,17 @@ function paint(w, h, fn) {
 }
 
 // ---------- sprites ----------
-const TREE_W = 16, TREE_H = 24;
+const TREE_W = 24, TREE_H = 36;
 
-// Conifer: three stacked tiers lit from the left, short trunk, soft shadow.
+// Conifer: four stacked tiers lit from the left, short trunk, soft shadow.
 const treeTex = paint(TREE_W, TREE_H, (x, y) => {
-  if (y >= 1 && y <= 18) {
-    const tier = Math.floor((y - 1) / 6), i = (y - 1) % 6;
-    const hw = Math.min(7, 1 + i + tier);
-    if (Math.abs(x - 7.5) <= hw) return x < 8 ? '#2f7a4f' : '#1f5a3a';
+  if (y >= 1 && y <= 28) {
+    const tier = Math.floor((y - 1) / 7), i = (y - 1) % 7;
+    const hw = Math.min(11, 1 + i + tier * 2);
+    if (Math.abs(x - 11.5) <= hw) return x < 12 ? '#2f7a4f' : '#1f5a3a';
   }
-  if (y >= 19 && y <= 22 && (x === 7 || x === 8)) return '#5d3f22';
-  if (Math.hypot((x - 7.5) / 5.5, (y - 22.5) / 1.5) <= 1) return 'rgba(0,0,0,.22)';
+  if (y >= 29 && y <= 33 && x >= 10 && x <= 13) return x < 12 ? '#5d3f22' : '#4a3019';
+  if (Math.hypot((x - 11.5) / 8, (y - 33.5) / 2) <= 1) return 'rgba(0,0,0,.22)';
   return null;
 });
 
@@ -453,17 +453,19 @@ function render() {
 
   // Trees and the player, drawn top to bottom so nearer things overlap farther ones.
   const prow = Math.floor(player.y), pcol = Math.floor(player.x);
-  const yEnd = Math.min(MAP_SIZE - 1, y1 + 1);
+  const yEnd = Math.min(MAP_SIZE - 1, y1 + 2);
+  const xa = Math.max(0, x0 - 1), xb = Math.min(MAP_SIZE - 1, x1 + 1);
+  const treeDx = ((TREE_W - TILE) >> 1) * p;
   for (let y = y0; y <= yEnd; y++) {
     if (y === prow) drawPlayer(ox, oy, t, p);
     const row = y * MAP_SIZE;
-    const nearRow = y === prow || y === prow + 1;
-    for (let x = x0; x <= x1; x++) {
+    const nearRow = y >= prow && y <= prow + 2;
+    for (let x = xa; x <= xb; x++) {
       if (!deco[row + x]) continue;
       // Trees standing in front of the player turn see-through so the player stays visible.
       const hide = nearRow && Math.abs(x - pcol) <= 1;
       if (hide) ctx.globalAlpha = 0.4;
-      ctx.drawImage(treeTex, ox + x * t, oy + (y + 1) * t - TREE_H * p, TREE_W * p, TREE_H * p);
+      ctx.drawImage(treeTex, ox + x * t - treeDx, oy + (y + 1) * t - TREE_H * p, TREE_W * p, TREE_H * p);
       if (hide) ctx.globalAlpha = 1;
     }
   }
