@@ -4,8 +4,8 @@
 const MAP_SIZE = 1600;       // tiles per side
 const TILE = 16;             // CSS pixels per tile at zoom 1
 const PLAYER_SPEED = 9;      // tiles/sec -> ~3 min edge to edge
-const ZOOM_MIN = 0.5, ZOOM_MAX = 4;
-const MINI = 200;            // minimap resolution in pixels
+const ZOOM_MIN = 0.5, ZOOM_MAX = 8, ZOOM_DEFAULT = 4;
+const MINI = 400;            // minimap resolution in pixels
 
 const TILES = [
   { name: '바다', color: '#2f6f9f' },
@@ -68,8 +68,11 @@ function findSpawn() {
 }
 
 // ---------- state ----------
-const player = { x: MAP_SIZE / 2, y: MAP_SIZE / 2 };
-const camera = { x: player.x, y: player.y, zoom: 2 };
+const player = { x: MAP_SIZE / 2, y: MAP_SIZE / 2, angle: 0, moving: false, onWater: false };
+const camera = { x: player.x, y: player.y, zoom: ZOOM_DEFAULT };
+const wake = [];             // { x, y, age } ripples left behind the boat
+const WAKE_LIFE = 0.9;
+let wakeTimer = 0, clock = 0;
 const keys = new Set();
 let stick = null;            // { id, ox, oy, dx, dy } virtual joystick, dx/dy in -1..1
 const STICK_RADIUS = 56;
@@ -173,15 +176,19 @@ function renderMinimap() {
   const k = MINI / MAP_SIZE, s = TILE * camera.zoom;
   miniCtx.drawImage(miniBase, 0, 0);
   miniCtx.strokeStyle = 'rgba(255,255,255,.85)';
-  miniCtx.lineWidth = 1;
+  miniCtx.lineWidth = 2;
   miniCtx.strokeRect(
     (camera.x - viewW / 2 / s) * k, (camera.y - viewH / 2 / s) * k,
     Math.max(2, viewW / s * k), Math.max(2, viewH / s * k));
   miniCtx.fillStyle = '#ff4d4d';
-  miniCtx.fillRect(player.x * k - 2.5, player.y * k - 2.5, 5, 5);
+  miniCtx.fillRect(player.x * k - 5, player.y * k - 5, 10, 10);
   miniCtx.strokeStyle = '#fff';
-  miniCtx.strokeRect(player.x * k - 2.5, player.y * k - 2.5, 5, 5);
+  miniCtx.lineWidth = 2;
+  miniCtx.strokeRect(player.x * k - 5, player.y * k - 5, 10, 10);
 }
+
+// Tap the minimap to open it as a large map; tap again to close.
+mini.addEventListener('click', () => mini.classList.toggle('big'));
 
 // ---------- loop ----------
 const biomeEl = document.getElementById('biome');
@@ -203,8 +210,57 @@ function update(dt) {
     player.x = Math.min(MAP_SIZE - 0.5, Math.max(0.5, player.x + dx * PLAYER_SPEED * dt));
     player.y = Math.min(MAP_SIZE - 0.5, Math.max(0.5, player.y + dy * PLAYER_SPEED * dt));
   }
+  player.moving = !!(dx || dy);
+  if (player.moving) player.angle = Math.atan2(dy, dx);
+  player.onWater = tileAt(player.x, player.y) === 0;
+
+  clock += dt;
+  for (const w of wake) w.age += dt;
+  while (wake.length && wake[0].age > WAKE_LIFE) wake.shift();
+  wakeTimer -= dt;
+  if (player.onWater && player.moving && wakeTimer <= 0) {
+    wake.push({ x: player.x - Math.cos(player.angle) * 0.6, y: player.y - Math.sin(player.angle) * 0.6, age: 0 });
+    wakeTimer = 0.09;
+  }
+
   camera.x = player.x;
   camera.y = player.y;
+}
+
+function drawBoat(px, py, s) {
+  for (const w of wake) {
+    const a = 1 - w.age / WAKE_LIFE;
+    ctx.strokeStyle = `rgba(255,255,255,${0.55 * a})`;
+    ctx.lineWidth = Math.max(1, s * 0.06);
+    ctx.beginPath();
+    ctx.arc(px + (w.x - player.x) * s, py + (w.y - player.y) * s, s * (0.2 + w.age * 0.7), 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  const bob = Math.sin(clock * 3) * s * 0.05;
+  const tilt = Math.sin(clock * 2.1) * 0.06;
+  ctx.save();
+  ctx.translate(px, py + bob);
+  ctx.rotate(player.angle + tilt);
+  const hull = (k) => {
+    ctx.beginPath();
+    ctx.moveTo(1.05 * s * k, 0);
+    ctx.quadraticCurveTo(0.5 * s * k, -0.62 * s * k, -0.7 * s * k, -0.52 * s * k);
+    ctx.lineTo(-0.85 * s * k, 0);
+    ctx.lineTo(-0.7 * s * k, 0.52 * s * k);
+    ctx.quadraticCurveTo(0.5 * s * k, 0.62 * s * k, 1.05 * s * k, 0);
+    ctx.closePath();
+  };
+  hull(1);
+  ctx.fillStyle = '#7a4a22';
+  ctx.fill();
+  ctx.strokeStyle = '#3f2510';
+  ctx.lineWidth = Math.max(1, s * 0.07);
+  ctx.stroke();
+  hull(0.72);
+  ctx.fillStyle = '#b07a45';
+  ctx.fill();
+  ctx.restore();
+  return bob;
 }
 
 function render() {
@@ -229,11 +285,13 @@ function render() {
     }
   }
 
-  const px = (player.x - left) * s, py = (player.y - top) * s;
+  const px = (player.x - left) * s;
+  let py = (player.y - top) * s;
+  if (player.onWater) py += drawBoat(px, py, s);
   ctx.fillStyle = '#f2f2f2';
   ctx.fillRect(px - s * 0.35, py - s * 0.35, s * 0.7, s * 0.7);
-  ctx.strokeStyle = '#14181d';
-  ctx.lineWidth = Math.max(1, s * 0.08);
+  ctx.strokeStyle = '#ffd400';
+  ctx.lineWidth = Math.max(1.5, s * 0.1);
   ctx.strokeRect(px - s * 0.35, py - s * 0.35, s * 0.7, s * 0.7);
 
   if (stick) {
@@ -267,5 +325,4 @@ generateMap(1337);
 Object.assign(player, findSpawn());
 buildMinimap();
 resize();
-if (Math.min(viewW, viewH) < 600) camera.zoom = 1.25;   // show more of the map on phones
 requestAnimationFrame(frame);

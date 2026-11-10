@@ -30,7 +30,12 @@
   #mini {
     top: calc(env(safe-area-inset-top, 0px) + 8px); right: calc(env(safe-area-inset-right, 0px) + 8px);
     width: min(30vmin, 168px); height: min(30vmin, 168px);
-    image-rendering: pixelated; pointer-events: none;
+    image-rendering: pixelated; cursor: pointer; touch-action: none; z-index: 2;
+  }
+  #mini.big {
+    top: 50%; left: 50%; right: auto; transform: translate(-50%, -50%);
+    width: min(92vmin, 720px); height: min(92vmin, 720px);
+    box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .55);
   }
   #full {
     left: calc(env(safe-area-inset-left, 0px) + 8px); top: calc(env(safe-area-inset-top, 0px) + 8px);
@@ -41,7 +46,7 @@
 <body>
 <canvas id="view"></canvas>
 <div id="hud" class="panel"><div id="biome"></div><div id="coords"></div></div>
-<canvas id="mini" class="panel" width="200" height="200"></canvas>
+<canvas id="mini" class="panel" width="400" height="400"></canvas>
 <button id="full" class="panel" aria-label="전체 화면">⛶</button>
 <script src="main.js"></script>
 </body>
