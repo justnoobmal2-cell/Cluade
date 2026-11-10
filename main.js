@@ -1,4 +1,4 @@
-// Game skeleton: full-screen pixel-art view, tile map, trees, camera, player
+// Game skeleton: full-screen view, flat tile map, trees, camera, player
 // movement, boat visuals on water, zoomable minimap. No game systems yet.
 
 const MAP_SIZE = 1600;       // tiles per side
@@ -54,57 +54,16 @@ function paint(w, h, fn) {
 }
 
 // ---------- sprites ----------
-const TILE_VARIANTS = 4, WATER_FRAMES = 2;
+const TREE_W = 16, TREE_H = 20;
 
-function tileTexture(type, variant, frame) {
-  return paint(TILE, TILE, (x, y) => {
-    const r = hash(x, y, type * 31 + variant * 7 + 1);
-    switch (type) {
-      case 0: {
-        const yy = (y + variant * 3) % 16, xx = (x + frame * 4 + variant * 5) % 16;
-        if ((yy === 3 && xx < 5) || (yy === 11 && xx >= 8 && xx < 12)) return '#5b9bc8';
-        return r < 0.06 ? '#2a648f' : '#2f6f9f';
-      }
-      case 1: return r < 0.10 ? '#c4b274' : r < 0.18 ? '#e8dba3' : '#d9c98a';
-      case 2: return r < 0.10 ? '#5a9643' : r < 0.18 ? '#7fbd62' : '#6aa84f';
-      case 3: return r < 0.14 ? '#33692f' : r < 0.22 ? '#4b8c45' : '#3d7a3a';
-      default:
-        if (hash(x >> 2, y >> 2, variant + 50) < 0.25) return '#9aa0a9';
-        return r < 0.10 ? '#70757d' : '#8a8f98';
-    }
-  });
-}
-
-// tileTex[type][variant][frame]
-const tileTex = BIOMES.map((_, type) =>
-  Array.from({ length: TILE_VARIANTS }, (_, v) =>
-    Array.from({ length: type === WATER ? WATER_FRAMES : 1 }, (_, f) => tileTexture(type, v, f))));
-
-const TREE_W = 16, TREE_H = 24;
-
-function treeSprite(v) {
-  const round = v < 2;
-  const r = v === 0 ? 7 : 6, cy = v === 0 ? 8 : 9;
-  const C = round
-    ? { o: '#1f4a22', m: '#34772f', l: '#58a84a', d: '#28602a' }
-    : { o: '#173d24', m: '#2a6040', l: '#3d7d52', d: '#1f4d33' };
-  return paint(TREE_W, TREE_H, (x, y) => {
-    let inside = false, edge = false, light = false, dark = false;
-    if (round) {
-      const dx = x - 7.5, dy = y - cy, d = Math.hypot(dx, dy);
-      inside = d <= r; edge = d > r - 1.1; light = dx + dy < -r * 0.55; dark = dx + dy > r * 0.6;
-    } else if (y >= 1 && y <= 18) {
-      const tier = Math.floor((y - 1) / 6), i = (y - 1) % 6;
-      const hw = Math.min(7, 1 + i + tier), dx = Math.abs(x - 7.5);
-      inside = dx <= hw; edge = dx > hw - 1 || i === 5; light = x < 7 && i < 3; dark = x > 9;
-    }
-    if (inside) return edge ? C.o : light ? C.l : dark ? C.d : C.m;
-    const trunkTop = round ? cy + r - 1 : 19;
-    if (y >= trunkTop && y <= 22 && (x === 7 || x === 8)) return x === 7 ? '#4a2e16' : '#6b4423';
-    return null;
-  });
-}
-const treeTex = [0, 1, 2].map(treeSprite);
+// One simple tree: flat canopy with a single highlight, short trunk, soft shadow.
+const treeTex = paint(TREE_W, TREE_H, (x, y) => {
+  const dx = x - 7.5, dy = y - 7.5;
+  if (Math.hypot(dx, dy) <= 6.6) return Math.hypot(dx + 1.5, dy + 2) <= 3.4 ? '#5fae52' : '#245226';
+  if (y >= 13 && y <= 17 && (x === 7 || x === 8)) return '#5d3f22';
+  if (y >= 16 && Math.hypot(dx / 5.5, (y - 17.5) / 1.6) <= 1) return 'rgba(0,0,0,.2)';
+  return null;
+});
 
 const BOAT_L = 26, BOAT_W = 14;
 
@@ -130,7 +89,7 @@ const boatTex = [
 
 // ---------- map ----------
 const map = new Uint8Array(MAP_SIZE * MAP_SIZE);     // biome id per tile
-const deco = new Uint8Array(MAP_SIZE * MAP_SIZE);    // 0 none, 1..3 tree variant
+const deco = new Uint8Array(MAP_SIZE * MAP_SIZE);    // 0 none, 1 tree
 
 function generateMap(seed) {
   for (let y = 0; y < MAP_SIZE; y++) {
@@ -147,8 +106,14 @@ function generateMap(seed) {
       else t = m > 0.55 ? 3 : 2;
       const i = y * MAP_SIZE + x;
       map[i] = t;
-      const density = t === 3 ? 0.30 : t === 2 ? 0.035 : 0;
-      deco[i] = hash(x, y, seed + 9) < density ? 1 + Math.floor(hash(x, y, seed + 10) * 3) : 0;
+      // Trees only grow on a staggered grid so they never touch, and forests are
+      // broken into groves with clearings between them.
+      let density = 0;
+      if ((y & 1) === 0 && ((x + ((y >> 1) & 1)) & 1) === 0) {
+        if (t === 3) density = valueNoise(x / 10, y / 10, seed + 8) > 0.42 ? 0.55 : 0.06;
+        else if (t === 2) density = 0.02;
+      }
+      deco[i] = hash(x, y, seed + 9) < density ? 1 : 0;
     }
   }
 }
@@ -285,8 +250,8 @@ function buildMapImage() {
   const img = g.createImageData(MAP_SIZE, MAP_SIZE);
   const rgb = BIOMES.map((t) => [1, 3, 5].map((i) => parseInt(t.color.slice(i, i + 2), 16)));
   for (let i = 0; i < map.length; i++) {
-    const c = rgb[map[i]], k = deco[i] ? 0.72 : 1, o = i * 4;
-    img.data[o] = c[0] * k; img.data[o + 1] = c[1] * k; img.data[o + 2] = c[2] * k; img.data[o + 3] = 255;
+    const c = rgb[map[i]], o = i * 4;
+    img.data[o] = c[0]; img.data[o + 1] = c[1]; img.data[o + 2] = c[2]; img.data[o + 3] = 255;
   }
   g.putImageData(img, 0, 0);
 }
@@ -323,7 +288,7 @@ function renderMinimap() {
   const k = MINI / sw, t = TILE * pixelScale();
   miniCtx.imageSmoothingEnabled = false;
   miniCtx.drawImage(mapImg, sx, sy, sw, sw, 0, 0, MINI, MINI);
-  miniCtx.strokeStyle = '#f4f1de';
+  miniCtx.strokeStyle = '#ffffff';
   miniCtx.lineWidth = 2;
   miniCtx.strokeRect(
     Math.round((camera.x - canvas.width / 2 / t - sx) * k), Math.round((camera.y - canvas.height / 2 / t - sy) * k),
@@ -440,28 +405,20 @@ function drawPlayer(ox, oy, t, p) {
   ctx.fillRect(px - 6 * p, py - 6 * p, 12 * p, 12 * p);
   ctx.fillStyle = '#f2f2f2';
   ctx.fillRect(px - 4 * p, py - 4 * p, 8 * p, 8 * p);
-  const ex = Math.round(Math.cos(player.angle)), ey = Math.round(Math.sin(player.angle));
-  ctx.fillStyle = '#14181d';
-  ctx.fillRect(px + (ex - 2) * p, py + (ey - 1) * p, p, 2 * p);
-  ctx.fillRect(px + (ex + 1) * p, py + (ey - 1) * p, p, 2 * p);
 }
 
-function drawStick(p) {
-  const u = Math.max(2, Math.round(dpr * 2));
-  const r = Math.round(STICK_RADIUS * dpr), k = Math.round(22 * dpr);
-  const cx = Math.round(stick.ox * dpr), cy = Math.round(stick.oy * dpr);
-  ctx.fillStyle = 'rgba(244,241,222,.14)';
-  ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
-  ctx.fillStyle = 'rgba(244,241,222,.6)';
-  ctx.fillRect(cx - r, cy - r, r * 2, u);
-  ctx.fillRect(cx - r, cy + r - u, r * 2, u);
-  ctx.fillRect(cx - r, cy - r, u, r * 2);
-  ctx.fillRect(cx + r - u, cy - r, u, r * 2);
-  const kx = cx + Math.round(stick.dx * r), ky = cy + Math.round(stick.dy * r);
-  ctx.fillStyle = 'rgba(0,0,0,.45)';
-  ctx.fillRect(kx - k + u, ky - k + u, k * 2, k * 2);
-  ctx.fillStyle = 'rgba(244,241,222,.85)';
-  ctx.fillRect(kx - k, ky - k, k * 2, k * 2);
+function drawStick() {
+  const r = STICK_RADIUS * dpr, cx = stick.ox * dpr, cy = stick.oy * dpr;
+  ctx.lineWidth = 2 * dpr;
+  ctx.strokeStyle = 'rgba(255,255,255,.45)';
+  ctx.fillStyle = 'rgba(255,255,255,.12)';
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,.6)';
+  ctx.beginPath();
+  ctx.arc(cx + stick.dx * r, cy + stick.dy * r, 22 * dpr, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 function render() {
@@ -477,14 +434,17 @@ function render() {
   const x0 = Math.max(0, Math.floor(-ox / t)), y0 = Math.max(0, Math.floor(-oy / t));
   const x1 = Math.min(MAP_SIZE - 1, Math.floor((W - ox) / t));
   const y1 = Math.min(MAP_SIZE - 1, Math.floor((H - oy) / t));
-  const frame = Math.floor(clock * 1.5) % WATER_FRAMES;
 
+  // Flat tiles; runs of the same biome in a row are drawn as one rectangle.
   for (let y = y0; y <= y1; y++) {
     const row = y * MAP_SIZE;
-    for (let x = x0; x <= x1; x++) {
-      const type = map[row + x];
-      const variants = tileTex[type][(hash(x, y, 99) * TILE_VARIANTS) | 0];
-      ctx.drawImage(variants[type === WATER ? frame : 0], ox + x * t, oy + y * t, t, t);
+    let start = x0, type = map[row + x0];
+    for (let x = x0 + 1; x <= x1 + 1; x++) {
+      const next = x <= x1 ? map[row + x] : -1;
+      if (next === type) continue;
+      ctx.fillStyle = BIOMES[type].color;
+      ctx.fillRect(ox + start * t, oy + y * t, (x - start) * t, t);
+      start = x; type = next;
     }
   }
 
@@ -501,12 +461,12 @@ function render() {
       // Trees standing in front of the player turn see-through so the player stays visible.
       const hide = nearRow && Math.abs(x - pcol) <= 1;
       if (hide) ctx.globalAlpha = 0.4;
-      ctx.drawImage(treeTex[d - 1], ox + x * t, oy + y * t - (TREE_H - TILE) * p, TREE_W * p, TREE_H * p);
+      ctx.drawImage(treeTex, ox + x * t, oy + y * t - (TREE_H - TILE) * p, TREE_W * p, TREE_H * p);
       if (hide) ctx.globalAlpha = 1;
     }
   }
 
-  if (stick) drawStick(p);
+  if (stick) drawStick();
 
   renderMinimap();
   biomeEl.textContent = BIOMES[tileAt(player.x, player.y)].name;
