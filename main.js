@@ -54,17 +54,17 @@ function paint(w, h, fn) {
 }
 
 // ---------- sprites ----------
-const TREE_W = 20, TREE_H = 30;
+const TREE_W = 24, TREE_H = 36;
 
 // Conifer: four stacked tiers lit from the left, short trunk, soft shadow.
 const treeTex = paint(TREE_W, TREE_H, (x, y) => {
-  if (y >= 1 && y <= 24) {
-    const tier = Math.floor((y - 1) / 6), i = (y - 1) % 6;
-    const hw = Math.min(9, 1 + i + Math.floor(tier * 1.5));
-    if (Math.abs(x - 9.5) <= hw) return x < 10 ? '#2f7a4f' : '#1f5a3a';
+  if (y >= 1 && y <= 28) {
+    const tier = Math.floor((y - 1) / 7), i = (y - 1) % 7;
+    const hw = Math.min(11, 1 + i + tier * 2);
+    if (Math.abs(x - 11.5) <= hw) return x < 12 ? '#2f7a4f' : '#1f5a3a';
   }
-  if (y >= 25 && y <= 28 && (x === 9 || x === 10)) return x === 9 ? '#5d3f22' : '#4a3019';
-  if (Math.hypot((x - 9.5) / 6.5, (y - 28.5) / 1.5) <= 1) return 'rgba(0,0,0,.22)';
+  if (y >= 29 && y <= 33 && x >= 10 && x <= 13) return x < 12 ? '#5d3f22' : '#4a3019';
+  if (Math.hypot((x - 11.5) / 8, (y - 33.5) / 2) <= 1) return 'rgba(0,0,0,.22)';
   return null;
 });
 
@@ -113,8 +113,8 @@ function generateMap(seed) {
       // broken into groves with clearings between them.
       let density = 0;
       if ((y & 1) === 0 && ((x + ((y >> 1) & 1)) & 1) === 0) {
-        if (t === 3) density = valueNoise(x / 10, y / 10, seed + 8) > 0.5 ? 0.22 : 0.02;
-        else if (t === 2) density = 0.006;
+        if (t === 3) density = valueNoise(x / 10, y / 10, seed + 8) > 0.5 ? 0.11 : 0.01;
+        else if (t === 2) density = 0.003;
       }
       deco[i] = hash(x, y, seed + 9) < density ? 1 : 0;
     }
