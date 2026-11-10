@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Game</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0d1014; overflow: hidden; }
+  canvas { display: block; width: 100vw; height: 100vh; image-rendering: pixelated; }
+  #hud {
+    position: fixed; left: 12px; top: 10px; color: #e8ecef;
+    font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace;
+    background: rgba(13, 16, 20, .7); padding: 6px 10px; border-radius: 6px;
+    pointer-events: none; white-space: pre;
+  }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div id="hud"></div>
+<script src="main.js"></script>
+</body>
+</html>
