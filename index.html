@@ -9,45 +9,64 @@
 <meta name="theme-color" content="#0d1014">
 <title>Game</title>
 <style>
+  :root {
+    --st: env(safe-area-inset-top, 0px); --sr: env(safe-area-inset-right, 0px);
+    --sb: env(safe-area-inset-bottom, 0px); --sl: env(safe-area-inset-left, 0px);
+    --big: min(92vmin, 720px);
+  }
   html, body {
     margin: 0; width: 100%; height: 100%; background: #0d1014; overflow: hidden;
     position: fixed; inset: 0; overscroll-behavior: none;
     -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
     -webkit-tap-highlight-color: transparent;
   }
-  #view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; image-rendering: pixelated; }
   .panel {
-    position: fixed; color: #e8ecef; background: rgba(13, 16, 20, .72);
-    border: 1px solid rgba(255, 255, 255, .14); border-radius: 8px;
-    font: 600 13px/1.35 ui-monospace, Menlo, Consolas, monospace;
+    position: fixed; color: #f4f1de; background: #1b2130;
+    border: 3px solid #f4f1de; border-radius: 0; box-shadow: 3px 3px 0 #000;
+    font: 700 13px/1.35 ui-monospace, "Courier New", monospace; box-sizing: border-box;
   }
+  button.panel { width: 40px; height: 40px; padding: 0; font-size: 20px; line-height: 1; cursor: pointer; touch-action: manipulation; }
+  button.panel:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #000; }
   #hud {
-    top: calc(env(safe-area-inset-top, 0px) + 8px); left: 50%; transform: translateX(-50%);
-    padding: 5px 12px; text-align: center; white-space: nowrap; pointer-events: none;
+    top: calc(var(--st) + 8px); left: 50%; transform: translateX(-50%);
+    padding: 4px 12px; text-align: center; white-space: nowrap; pointer-events: none;
   }
   #biome { font-size: 15px; }
-  #coords { opacity: .75; font-weight: 400; }
+  #coords { color: #ffd400; }
   #mini {
-    top: calc(env(safe-area-inset-top, 0px) + 8px); right: calc(env(safe-area-inset-right, 0px) + 8px);
+    top: calc(var(--st) + 8px); right: calc(var(--sr) + 8px);
     width: min(30vmin, 168px); height: min(30vmin, 168px);
     image-rendering: pixelated; cursor: pointer; touch-action: none; z-index: 2;
   }
   #mini.big {
     top: 50%; left: 50%; right: auto; transform: translate(-50%, -50%);
-    width: min(92vmin, 720px); height: min(92vmin, 720px);
-    box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .55);
+    width: var(--big); height: var(--big); cursor: grab;
+    box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .6);
   }
-  #full {
-    left: calc(env(safe-area-inset-left, 0px) + 8px); top: calc(env(safe-area-inset-top, 0px) + 8px);
-    width: 36px; height: 36px; padding: 0; font-size: 18px; cursor: pointer;
+  #mapbar {
+    display: none; position: fixed; z-index: 3; gap: 6px;
+    top: calc(50% - var(--big) / 2 + 10px); right: calc(50% - var(--big) / 2 + 10px);
   }
+  body.mapopen #mapbar { display: flex; }
+  #mapbar button { position: static; }
+  #full { left: calc(var(--sl) + 8px); top: calc(var(--st) + 8px); }
+  #zin  { right: calc(var(--sr) + 8px); bottom: calc(var(--sb) + 60px); }
+  #zout { right: calc(var(--sr) + 8px); bottom: calc(var(--sb) + 12px); }
 </style>
 </head>
 <body>
 <canvas id="view"></canvas>
 <div id="hud" class="panel"><div id="biome"></div><div id="coords"></div></div>
 <canvas id="mini" class="panel" width="400" height="400"></canvas>
+<div id="mapbar">
+  <button id="mapin" class="panel" aria-label="지도 확대">+</button>
+  <button id="mapout" class="panel" aria-label="지도 축소">−</button>
+  <button id="mapclose" class="panel" aria-label="지도 닫기">×</button>
+</div>
 <button id="full" class="panel" aria-label="전체 화면">⛶</button>
+<button id="zin" class="panel" aria-label="확대">+</button>
+<button id="zout" class="panel" aria-label="축소">−</button>
 <script src="main.js"></script>
 </body>
 </html>

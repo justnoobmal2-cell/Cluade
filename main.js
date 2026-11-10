@@ -1,23 +1,23 @@
-// Game skeleton: full-screen view, tile map, camera, player movement, minimap.
-// No game systems yet.
+// Game skeleton: full-screen pixel-art view, tile map, trees, camera, player
+// movement, boat visuals on water, zoomable minimap. No game systems yet.
 
 const MAP_SIZE = 1600;       // tiles per side
-const TILE = 16;             // CSS pixels per tile at zoom 1
+const TILE = 16;             // sprite pixels per tile
 const PLAYER_SPEED = 9;      // tiles/sec -> ~3 min edge to edge
-const ZOOM_MIN = 0.5, ZOOM_MAX = 8, ZOOM_DEFAULT = 4;
-const MINI = 400;            // minimap resolution in pixels
+const ZOOM_MIN = 0.5, ZOOM_MAX = 8, ZOOM_DEFAULT = 4;   // CSS px per sprite px
+const MINI = 400;            // minimap canvas resolution
+const MAP_ZOOM_MAX = 16;
 
-const TILES = [
+const BIOMES = [
   { name: '바다', color: '#2f6f9f' },
   { name: '해변', color: '#d9c98a' },
   { name: '초원', color: '#6aa84f' },
   { name: '숲',   color: '#3d7a3a' },
   { name: '산',   color: '#8a8f98' },
 ];
+const WATER = 0;
 
-// ---------- map ----------
-const map = new Uint8Array(MAP_SIZE * MAP_SIZE);
-
+// ---------- helpers ----------
 function hash(x, y, seed) {
   let h = (x * 374761393 + y * 668265263 + seed * 144665) | 0;
   h = Math.imul(h ^ (h >>> 13), 1274126177);
@@ -33,6 +33,105 @@ function valueNoise(x, y, seed) {
   return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
 }
 
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+function makeCanvas(w, h) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  return c;
+}
+
+// Build a sprite by asking `fn` for the color of every pixel (null = transparent).
+function paint(w, h, fn) {
+  const c = makeCanvas(w, h), g = c.getContext('2d');
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const col = fn(x, y);
+      if (col) { g.fillStyle = col; g.fillRect(x, y, 1, 1); }
+    }
+  }
+  return c;
+}
+
+// ---------- sprites ----------
+const TILE_VARIANTS = 4, WATER_FRAMES = 2;
+
+function tileTexture(type, variant, frame) {
+  return paint(TILE, TILE, (x, y) => {
+    const r = hash(x, y, type * 31 + variant * 7 + 1);
+    switch (type) {
+      case 0: {
+        const yy = (y + variant * 3) % 16, xx = (x + frame * 4 + variant * 5) % 16;
+        if ((yy === 3 && xx < 5) || (yy === 11 && xx >= 8 && xx < 12)) return '#5b9bc8';
+        return r < 0.06 ? '#2a648f' : '#2f6f9f';
+      }
+      case 1: return r < 0.10 ? '#c4b274' : r < 0.18 ? '#e8dba3' : '#d9c98a';
+      case 2: return r < 0.10 ? '#5a9643' : r < 0.18 ? '#7fbd62' : '#6aa84f';
+      case 3: return r < 0.14 ? '#33692f' : r < 0.22 ? '#4b8c45' : '#3d7a3a';
+      default:
+        if (hash(x >> 2, y >> 2, variant + 50) < 0.25) return '#9aa0a9';
+        return r < 0.10 ? '#70757d' : '#8a8f98';
+    }
+  });
+}
+
+// tileTex[type][variant][frame]
+const tileTex = BIOMES.map((_, type) =>
+  Array.from({ length: TILE_VARIANTS }, (_, v) =>
+    Array.from({ length: type === WATER ? WATER_FRAMES : 1 }, (_, f) => tileTexture(type, v, f))));
+
+const TREE_W = 16, TREE_H = 24;
+
+function treeSprite(v) {
+  const round = v < 2;
+  const r = v === 0 ? 7 : 6, cy = v === 0 ? 8 : 9;
+  const C = round
+    ? { o: '#1f4a22', m: '#34772f', l: '#58a84a', d: '#28602a' }
+    : { o: '#173d24', m: '#2a6040', l: '#3d7d52', d: '#1f4d33' };
+  return paint(TREE_W, TREE_H, (x, y) => {
+    let inside = false, edge = false, light = false, dark = false;
+    if (round) {
+      const dx = x - 7.5, dy = y - cy, d = Math.hypot(dx, dy);
+      inside = d <= r; edge = d > r - 1.1; light = dx + dy < -r * 0.55; dark = dx + dy > r * 0.6;
+    } else if (y >= 1 && y <= 18) {
+      const tier = Math.floor((y - 1) / 6), i = (y - 1) % 6;
+      const hw = Math.min(7, 1 + i + tier), dx = Math.abs(x - 7.5);
+      inside = dx <= hw; edge = dx > hw - 1 || i === 5; light = x < 7 && i < 3; dark = x > 9;
+    }
+    if (inside) return edge ? C.o : light ? C.l : dark ? C.d : C.m;
+    const trunkTop = round ? cy + r - 1 : 19;
+    if (y >= trunkTop && y <= 22 && (x === 7 || x === 8)) return x === 7 ? '#4a2e16' : '#6b4423';
+    return null;
+  });
+}
+const treeTex = [0, 1, 2].map(treeSprite);
+
+const BOAT_L = 26, BOAT_W = 14;
+
+function boatPixel(x, y) {           // boat facing right
+  const hull = (px, py) => {
+    if (px < 0 || px >= BOAT_L) return false;
+    const hw = px < 2 ? 4.5 : px <= 15 ? 6 : 6 * (1 - Math.pow((px - 15) / 11, 2));
+    return Math.abs(py - 6.5) <= hw;
+  };
+  if (!hull(x, y)) return null;
+  const near = (d) => hull(x - d, y) && hull(x + d, y) && hull(x, y - d) && hull(x, y + d);
+  if (!near(1)) return '#3f2510';
+  if (!near(2)) return '#7a4a22';
+  return (x % 4 === 1) ? '#9a6a3a' : '#b07a45';
+}
+// 0 right, 1 down, 2 left, 3 up
+const boatTex = [
+  paint(BOAT_L, BOAT_W, (x, y) => boatPixel(x, y)),
+  paint(BOAT_W, BOAT_L, (x, y) => boatPixel(y, x)),
+  paint(BOAT_L, BOAT_W, (x, y) => boatPixel(BOAT_L - 1 - x, y)),
+  paint(BOAT_W, BOAT_L, (x, y) => boatPixel(BOAT_L - 1 - y, x)),
+];
+
+// ---------- map ----------
+const map = new Uint8Array(MAP_SIZE * MAP_SIZE);     // biome id per tile
+const deco = new Uint8Array(MAP_SIZE * MAP_SIZE);    // 0 none, 1..3 tree variant
+
 function generateMap(seed) {
   for (let y = 0; y < MAP_SIZE; y++) {
     for (let x = 0; x < MAP_SIZE; x++) {
@@ -46,7 +145,10 @@ function generateMap(seed) {
       else if (h < 0.45) t = 1;
       else if (h > 0.66) t = 4;
       else t = m > 0.55 ? 3 : 2;
-      map[y * MAP_SIZE + x] = t;
+      const i = y * MAP_SIZE + x;
+      map[i] = t;
+      const density = t === 3 ? 0.30 : t === 2 ? 0.035 : 0;
+      deco[i] = hash(x, y, seed + 9) < density ? 1 + Math.floor(hash(x, y, seed + 10) * 3) : 0;
     }
   }
 }
@@ -55,47 +157,72 @@ function tileAt(x, y) {
   return map[Math.floor(y) * MAP_SIZE + Math.floor(x)];
 }
 
-// Nearest non-water tile to the map center, searched in growing square rings.
+// Nearest open land tile to the map center, searched in growing square rings.
 function findSpawn() {
   const c = MAP_SIZE >> 1;
   for (let r = 0; r < c; r++) {
     for (let d = -r; d <= r; d++) {
       const ring = [[c + d, c - r], [c + d, c + r], [c - r, c + d], [c + r, c + d]];
-      for (const [x, y] of ring) if (map[y * MAP_SIZE + x] > 1) return { x: x + 0.5, y: y + 0.5 };
+      for (const [x, y] of ring) {
+        const i = y * MAP_SIZE + x;
+        if (map[i] > 1 && !deco[i]) return { x: x + 0.5, y: y + 0.5 };
+      }
     }
   }
   return { x: c, y: c };
 }
 
 // ---------- state ----------
-const player = { x: MAP_SIZE / 2, y: MAP_SIZE / 2, angle: 0, moving: false, onWater: false };
+const player = { x: MAP_SIZE / 2, y: MAP_SIZE / 2, angle: Math.PI / 2, moving: false, onWater: false };
 const camera = { x: player.x, y: player.y, zoom: ZOOM_DEFAULT };
-const wake = [];             // { x, y, age } ripples left behind the boat
-const WAKE_LIFE = 0.9;
-let wakeTimer = 0, clock = 0;
 const keys = new Set();
 let stick = null;            // { id, ox, oy, dx, dy } virtual joystick, dx/dy in -1..1
 const STICK_RADIUS = 56;
+const wake = [];             // { x, y, age } ripples left behind the boat
+const WAKE_LIFE = 0.9;
+let wakeTimer = 0, clock = 0;
 
-// ---------- input ----------
+// ---------- view ----------
 const canvas = document.getElementById('view');
 const ctx = canvas.getContext('2d');
+let dpr = 1;
 
-function setZoom(z) {
-  camera.zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
+function resize() {
+  dpr = Math.min(3, window.devicePixelRatio || 1);
+  canvas.width = Math.round(window.innerWidth * dpr);
+  canvas.height = Math.round(window.innerHeight * dpr);
+}
+addEventListener('resize', resize);
+addEventListener('orientationchange', resize);
+
+// Device pixels per sprite pixel. Always an integer so pixel art stays crisp.
+function pixelScale() {
+  return Math.max(1, Math.round(camera.zoom * dpr));
 }
 
+function setZoom(z) {
+  camera.zoom = clamp(z, ZOOM_MIN, ZOOM_MAX);
+}
+
+function stepZoom(dir) {
+  setZoom((pixelScale() + dir) / dpr);
+}
+
+// ---------- input ----------
 addEventListener('keydown', (e) => keys.add(e.code));
 addEventListener('keyup', (e) => keys.delete(e.code));
 addEventListener('blur', () => keys.clear());
-addEventListener('wheel', (e) => setZoom(camera.zoom * (e.deltaY < 0 ? 1.15 : 1 / 1.15)), { passive: true });
 addEventListener('contextmenu', (e) => e.preventDefault());
+addEventListener('wheel', (e) => {
+  if (e.target === mini) return;
+  setZoom(camera.zoom * (e.deltaY < 0 ? 1.15 : 1 / 1.15));
+}, { passive: true });
 
 const pointers = new Map();
 let pinch = null;            // { dist, zoom }
 
-function pinchDistance() {
-  const [a, b] = [...pointers.values()];
+function spread(m) {
+  const [a, b] = [...m.values()];
   return Math.hypot(a.x - b.x, a.y - b.y) || 1;
 }
 
@@ -106,7 +233,7 @@ canvas.addEventListener('pointerdown', (e) => {
     stick = { id: e.pointerId, ox: e.clientX, oy: e.clientY, dx: 0, dy: 0 };
   } else if (pointers.size === 2) {
     stick = null;
-    pinch = { dist: pinchDistance(), zoom: camera.zoom };
+    pinch = { dist: spread(pointers), zoom: camera.zoom };
   }
 });
 
@@ -115,7 +242,7 @@ canvas.addEventListener('pointermove', (e) => {
   if (!p) return;
   p.x = e.clientX; p.y = e.clientY;
   if (pinch && pointers.size >= 2) {
-    setZoom(pinch.zoom * pinchDistance() / pinch.dist);
+    setZoom(pinch.zoom * spread(pointers) / pinch.dist);
   } else if (stick && stick.id === e.pointerId) {
     let dx = (p.x - stick.ox) / STICK_RADIUS, dy = (p.y - stick.oy) / STICK_RADIUS;
     const len = Math.hypot(dx, dy);
@@ -132,63 +259,118 @@ function pointerEnd(e) {
 canvas.addEventListener('pointerup', pointerEnd);
 canvas.addEventListener('pointercancel', pointerEnd);
 
+// Buttons act on press so they respond instantly and never lose a tap to a gesture.
+function onPress(id, fn) {
+  document.getElementById(id).addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); fn(); });
+}
+onPress('zin', () => stepZoom(1));
+onPress('zout', () => stepZoom(-1));
 document.getElementById('full').addEventListener('click', () => {
   const el = document.documentElement;
   if (document.fullscreenElement) document.exitFullscreen();
   else if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
 });
 
-// ---------- view ----------
-let viewW = 0, viewH = 0, dpr = 1;
-
-function resize() {
-  dpr = Math.min(2, window.devicePixelRatio || 1);
-  viewW = window.innerWidth;
-  viewH = window.innerHeight;
-  canvas.width = Math.round(viewW * dpr);
-  canvas.height = Math.round(viewH * dpr);
-}
-addEventListener('resize', resize);
-addEventListener('orientationchange', resize);
-
 // ---------- minimap ----------
+// Small: follows the player. Big (tap to open): drag to pan, pinch/wheel/buttons to zoom.
 const mini = document.getElementById('mini');
 const miniCtx = mini.getContext('2d');
-const miniBase = document.createElement('canvas');
-miniBase.width = miniBase.height = MINI;
+const mapImg = makeCanvas(MAP_SIZE, MAP_SIZE);       // one pixel per tile
+const mapView = { zoom: 1, cx: MAP_SIZE / 2, cy: MAP_SIZE / 2 };
+const mapPointers = new Map();
+let mapPinch = null;
 
-function buildMinimap() {
-  const g = miniBase.getContext('2d');
-  const img = g.createImageData(MINI, MINI);
-  const rgb = TILES.map((t) => [1, 3, 5].map((i) => parseInt(t.color.slice(i, i + 2), 16)));
-  const step = MAP_SIZE / MINI;
-  for (let y = 0; y < MINI; y++) {
-    for (let x = 0; x < MINI; x++) {
-      const c = rgb[tileAt((x + 0.5) * step, (y + 0.5) * step)];
-      const i = (y * MINI + x) * 4;
-      img.data[i] = c[0]; img.data[i + 1] = c[1]; img.data[i + 2] = c[2]; img.data[i + 3] = 255;
-    }
+function buildMapImage() {
+  const g = mapImg.getContext('2d');
+  const img = g.createImageData(MAP_SIZE, MAP_SIZE);
+  const rgb = BIOMES.map((t) => [1, 3, 5].map((i) => parseInt(t.color.slice(i, i + 2), 16)));
+  for (let i = 0; i < map.length; i++) {
+    const c = rgb[map[i]], k = deco[i] ? 0.72 : 1, o = i * 4;
+    img.data[o] = c[0] * k; img.data[o + 1] = c[1] * k; img.data[o + 2] = c[2] * k; img.data[o + 3] = 255;
   }
   g.putImageData(img, 0, 0);
 }
 
-function renderMinimap() {
-  const k = MINI / MAP_SIZE, s = TILE * camera.zoom;
-  miniCtx.drawImage(miniBase, 0, 0);
-  miniCtx.strokeStyle = 'rgba(255,255,255,.85)';
-  miniCtx.lineWidth = 2;
-  miniCtx.strokeRect(
-    (camera.x - viewW / 2 / s) * k, (camera.y - viewH / 2 / s) * k,
-    Math.max(2, viewW / s * k), Math.max(2, viewH / s * k));
-  miniCtx.fillStyle = '#ff4d4d';
-  miniCtx.fillRect(player.x * k - 5, player.y * k - 5, 10, 10);
-  miniCtx.strokeStyle = '#fff';
-  miniCtx.lineWidth = 2;
-  miniCtx.strokeRect(player.x * k - 5, player.y * k - 5, 10, 10);
+const mapIsBig = () => mini.classList.contains('big');
+
+function clampMapView() {
+  const half = MAP_SIZE / mapView.zoom / 2;
+  mapView.cx = clamp(mapView.cx, half, MAP_SIZE - half);
+  mapView.cy = clamp(mapView.cy, half, MAP_SIZE - half);
 }
 
-// Tap the minimap to open it as a large map; tap again to close.
-mini.addEventListener('click', () => mini.classList.toggle('big'));
+function setMapZoom(z) {
+  mapView.zoom = clamp(z, 1, MAP_ZOOM_MAX);
+}
+
+function openMap(open) {
+  mini.classList.toggle('big', open);
+  document.body.classList.toggle('mapopen', open);
+  mapPointers.clear();
+  mapPinch = null;
+  if (open) { mapView.cx = player.x; mapView.cy = player.y; }
+}
+
+// Source rectangle of the map currently shown, in tiles.
+function mapRect() {
+  const sw = MAP_SIZE / mapView.zoom;
+  const cx = mapIsBig() ? mapView.cx : player.x, cy = mapIsBig() ? mapView.cy : player.y;
+  return { sx: clamp(cx - sw / 2, 0, MAP_SIZE - sw), sy: clamp(cy - sw / 2, 0, MAP_SIZE - sw), sw };
+}
+
+function renderMinimap() {
+  const { sx, sy, sw } = mapRect();
+  const k = MINI / sw, t = TILE * pixelScale();
+  miniCtx.imageSmoothingEnabled = false;
+  miniCtx.drawImage(mapImg, sx, sy, sw, sw, 0, 0, MINI, MINI);
+  miniCtx.strokeStyle = '#f4f1de';
+  miniCtx.lineWidth = 2;
+  miniCtx.strokeRect(
+    Math.round((camera.x - canvas.width / 2 / t - sx) * k), Math.round((camera.y - canvas.height / 2 / t - sy) * k),
+    Math.max(4, canvas.width / t * k), Math.max(4, canvas.height / t * k));
+  const mx = Math.round((player.x - sx) * k), my = Math.round((player.y - sy) * k);
+  miniCtx.fillStyle = '#000';
+  miniCtx.fillRect(mx - 7, my - 7, 14, 14);
+  miniCtx.fillStyle = '#ffd400';
+  miniCtx.fillRect(mx - 5, my - 5, 10, 10);
+  miniCtx.fillStyle = '#f2f2f2';
+  miniCtx.fillRect(mx - 3, my - 3, 6, 6);
+}
+
+mini.addEventListener('pointerdown', (e) => {
+  if (!mapIsBig()) { openMap(true); return; }
+  mini.setPointerCapture(e.pointerId);
+  mapPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (mapPointers.size === 2) mapPinch = { dist: spread(mapPointers), zoom: mapView.zoom };
+});
+
+mini.addEventListener('pointermove', (e) => {
+  const p = mapPointers.get(e.pointerId);
+  if (!p) return;
+  const dx = e.clientX - p.x, dy = e.clientY - p.y;
+  p.x = e.clientX; p.y = e.clientY;
+  if (mapPinch && mapPointers.size >= 2) {
+    setMapZoom(mapPinch.zoom * spread(mapPointers) / mapPinch.dist);
+  } else if (mapPointers.size === 1) {
+    const tilesPerPx = MAP_SIZE / mapView.zoom / mini.getBoundingClientRect().width;
+    clampMapView();
+    mapView.cx -= dx * tilesPerPx;
+    mapView.cy -= dy * tilesPerPx;
+    clampMapView();
+  }
+});
+
+function mapPointerEnd(e) {
+  mapPointers.delete(e.pointerId);
+  if (mapPointers.size < 2) mapPinch = null;
+}
+mini.addEventListener('pointerup', mapPointerEnd);
+mini.addEventListener('pointercancel', mapPointerEnd);
+mini.addEventListener('wheel', (e) => setMapZoom(mapView.zoom * (e.deltaY < 0 ? 1.25 : 0.8)), { passive: true });
+
+onPress('mapin', () => setMapZoom(mapView.zoom * 2));
+onPress('mapout', () => setMapZoom(mapView.zoom / 2));
+onPress('mapclose', () => openMap(false));
 
 // ---------- loop ----------
 const biomeEl = document.getElementById('biome');
@@ -207,108 +389,127 @@ function update(dt) {
     dx = stick.dx; dy = stick.dy;
   }
   if (dx || dy) {
-    player.x = Math.min(MAP_SIZE - 0.5, Math.max(0.5, player.x + dx * PLAYER_SPEED * dt));
-    player.y = Math.min(MAP_SIZE - 0.5, Math.max(0.5, player.y + dy * PLAYER_SPEED * dt));
+    player.x = clamp(player.x + dx * PLAYER_SPEED * dt, 0.5, MAP_SIZE - 0.5);
+    player.y = clamp(player.y + dy * PLAYER_SPEED * dt, 0.5, MAP_SIZE - 0.5);
   }
   player.moving = !!(dx || dy);
   if (player.moving) player.angle = Math.atan2(dy, dx);
-  player.onWater = tileAt(player.x, player.y) === 0;
+  player.onWater = tileAt(player.x, player.y) === WATER;
 
   clock += dt;
   for (const w of wake) w.age += dt;
   while (wake.length && wake[0].age > WAKE_LIFE) wake.shift();
   wakeTimer -= dt;
   if (player.onWater && player.moving && wakeTimer <= 0) {
-    wake.push({ x: player.x - Math.cos(player.angle) * 0.6, y: player.y - Math.sin(player.angle) * 0.6, age: 0 });
-    wakeTimer = 0.09;
+    wake.push({ x: player.x - Math.cos(player.angle) * 0.7, y: player.y - Math.sin(player.angle) * 0.7, age: 0 });
+    wakeTimer = 0.12;
   }
 
   camera.x = player.x;
   camera.y = player.y;
 }
 
-function drawBoat(px, py, s) {
+// Facing as one of four directions: 0 right, 1 down, 2 left, 3 up.
+function facing() {
+  const c = Math.cos(player.angle), s = Math.sin(player.angle);
+  return Math.abs(c) >= Math.abs(s) ? (c >= 0 ? 0 : 2) : (s >= 0 ? 1 : 3);
+}
+
+function drawWake(ox, oy, t, p) {
   for (const w of wake) {
     const a = 1 - w.age / WAKE_LIFE;
-    ctx.strokeStyle = `rgba(255,255,255,${0.55 * a})`;
-    ctx.lineWidth = Math.max(1, s * 0.06);
-    ctx.beginPath();
-    ctx.arc(px + (w.x - player.x) * s, py + (w.y - player.y) * s, s * (0.2 + w.age * 0.7), 0, Math.PI * 2);
-    ctx.stroke();
+    const half = (2 + Math.floor(w.age * 9)) * p;
+    const x = ox + Math.round(w.x * t), y = oy + Math.round(w.y * t);
+    ctx.fillStyle = a > 0.66 ? '#d8ecf8' : a > 0.33 ? '#8fbfe0' : '#5b9bc8';
+    ctx.fillRect(x - half, y - half, half * 2, p);
+    ctx.fillRect(x - half, y + half - p, half * 2, p);
+    ctx.fillRect(x - half, y - half, p, half * 2);
+    ctx.fillRect(x + half - p, y - half, p, half * 2);
   }
-  const bob = Math.sin(clock * 3) * s * 0.05;
-  const tilt = Math.sin(clock * 2.1) * 0.06;
-  ctx.save();
-  ctx.translate(px, py + bob);
-  ctx.rotate(player.angle + tilt);
-  const hull = (k) => {
-    ctx.beginPath();
-    ctx.moveTo(1.05 * s * k, 0);
-    ctx.quadraticCurveTo(0.5 * s * k, -0.62 * s * k, -0.7 * s * k, -0.52 * s * k);
-    ctx.lineTo(-0.85 * s * k, 0);
-    ctx.lineTo(-0.7 * s * k, 0.52 * s * k);
-    ctx.quadraticCurveTo(0.5 * s * k, 0.62 * s * k, 1.05 * s * k, 0);
-    ctx.closePath();
-  };
-  hull(1);
-  ctx.fillStyle = '#7a4a22';
-  ctx.fill();
-  ctx.strokeStyle = '#3f2510';
-  ctx.lineWidth = Math.max(1, s * 0.07);
-  ctx.stroke();
-  hull(0.72);
-  ctx.fillStyle = '#b07a45';
-  ctx.fill();
-  ctx.restore();
-  return bob;
+}
+
+function drawPlayer(ox, oy, t, p) {
+  let px = ox + Math.round(player.x * t), py = oy + Math.round(player.y * t);
+  if (player.onWater) {
+    drawWake(ox, oy, t, p);
+    py += Math.round(Math.sin(clock * 3)) * p;            // bob one sprite pixel up/down
+    const img = boatTex[facing()];
+    ctx.drawImage(img, px - (img.width >> 1) * p, py - (img.height >> 1) * p, img.width * p, img.height * p);
+  }
+  ctx.fillStyle = '#ffd400';
+  ctx.fillRect(px - 6 * p, py - 6 * p, 12 * p, 12 * p);
+  ctx.fillStyle = '#f2f2f2';
+  ctx.fillRect(px - 4 * p, py - 4 * p, 8 * p, 8 * p);
+  const ex = Math.round(Math.cos(player.angle)), ey = Math.round(Math.sin(player.angle));
+  ctx.fillStyle = '#14181d';
+  ctx.fillRect(px + (ex - 2) * p, py + (ey - 1) * p, p, 2 * p);
+  ctx.fillRect(px + (ex + 1) * p, py + (ey - 1) * p, p, 2 * p);
+}
+
+function drawStick(p) {
+  const u = Math.max(2, Math.round(dpr * 2));
+  const r = Math.round(STICK_RADIUS * dpr), k = Math.round(22 * dpr);
+  const cx = Math.round(stick.ox * dpr), cy = Math.round(stick.oy * dpr);
+  ctx.fillStyle = 'rgba(244,241,222,.14)';
+  ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+  ctx.fillStyle = 'rgba(244,241,222,.6)';
+  ctx.fillRect(cx - r, cy - r, r * 2, u);
+  ctx.fillRect(cx - r, cy + r - u, r * 2, u);
+  ctx.fillRect(cx - r, cy - r, u, r * 2);
+  ctx.fillRect(cx + r - u, cy - r, u, r * 2);
+  const kx = cx + Math.round(stick.dx * r), ky = cy + Math.round(stick.dy * r);
+  ctx.fillStyle = 'rgba(0,0,0,.45)';
+  ctx.fillRect(kx - k + u, ky - k + u, k * 2, k * 2);
+  ctx.fillStyle = 'rgba(244,241,222,.85)';
+  ctx.fillRect(kx - k, ky - k, k * 2, k * 2);
 }
 
 function render() {
-  const s = TILE * camera.zoom;
-  const left = camera.x - viewW / 2 / s, top = camera.y - viewH / 2 / s;
+  const p = pixelScale(), t = TILE * p;
+  const W = canvas.width, H = canvas.height;
+  const ox = Math.round(W / 2 - camera.x * t), oy = Math.round(H / 2 - camera.y * t);
 
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.imageSmoothingEnabled = false;
   ctx.fillStyle = '#0d1014';
-  ctx.fillRect(0, 0, viewW, viewH);
+  ctx.fillRect(0, 0, W, H);
 
-  const x0 = Math.max(0, Math.floor(left)), y0 = Math.max(0, Math.floor(top));
-  const x1 = Math.min(MAP_SIZE - 1, Math.floor(left + viewW / s));
-  const y1 = Math.min(MAP_SIZE - 1, Math.floor(top + viewH / s));
-  const size = Math.ceil(s) + 1;
+  const x0 = Math.max(0, Math.floor(-ox / t)), y0 = Math.max(0, Math.floor(-oy / t));
+  const x1 = Math.min(MAP_SIZE - 1, Math.floor((W - ox) / t));
+  const y1 = Math.min(MAP_SIZE - 1, Math.floor((H - oy) / t));
+  const frame = Math.floor(clock * 1.5) % WATER_FRAMES;
 
   for (let y = y0; y <= y1; y++) {
-    const py = Math.floor((y - top) * s);
     const row = y * MAP_SIZE;
     for (let x = x0; x <= x1; x++) {
-      ctx.fillStyle = TILES[map[row + x]].color;
-      ctx.fillRect(Math.floor((x - left) * s), py, size, size);
+      const type = map[row + x];
+      const variants = tileTex[type][(hash(x, y, 99) * TILE_VARIANTS) | 0];
+      ctx.drawImage(variants[type === WATER ? frame : 0], ox + x * t, oy + y * t, t, t);
     }
   }
 
-  const px = (player.x - left) * s;
-  let py = (player.y - top) * s;
-  if (player.onWater) py += drawBoat(px, py, s);
-  ctx.fillStyle = '#f2f2f2';
-  ctx.fillRect(px - s * 0.35, py - s * 0.35, s * 0.7, s * 0.7);
-  ctx.strokeStyle = '#ffd400';
-  ctx.lineWidth = Math.max(1.5, s * 0.1);
-  ctx.strokeRect(px - s * 0.35, py - s * 0.35, s * 0.7, s * 0.7);
-
-  if (stick) {
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = 'rgba(255,255,255,.45)';
-    ctx.fillStyle = 'rgba(255,255,255,.12)';
-    ctx.beginPath();
-    ctx.arc(stick.ox, stick.oy, STICK_RADIUS, 0, Math.PI * 2);
-    ctx.fill(); ctx.stroke();
-    ctx.fillStyle = 'rgba(255,255,255,.6)';
-    ctx.beginPath();
-    ctx.arc(stick.ox + stick.dx * STICK_RADIUS, stick.oy + stick.dy * STICK_RADIUS, 22, 0, Math.PI * 2);
-    ctx.fill();
+  // Trees and the player, drawn top to bottom so nearer things overlap farther ones.
+  const prow = Math.floor(player.y), pcol = Math.floor(player.x);
+  const yEnd = Math.min(MAP_SIZE - 1, y1 + 1);
+  for (let y = y0; y <= yEnd; y++) {
+    if (y === prow) drawPlayer(ox, oy, t, p);
+    const row = y * MAP_SIZE;
+    const nearRow = y === prow || y === prow + 1;
+    for (let x = x0; x <= x1; x++) {
+      const d = deco[row + x];
+      if (!d) continue;
+      // Trees standing in front of the player turn see-through so the player stays visible.
+      const hide = nearRow && Math.abs(x - pcol) <= 1;
+      if (hide) ctx.globalAlpha = 0.4;
+      ctx.drawImage(treeTex[d - 1], ox + x * t, oy + y * t - (TREE_H - TILE) * p, TREE_W * p, TREE_H * p);
+      if (hide) ctx.globalAlpha = 1;
+    }
   }
 
+  if (stick) drawStick(p);
+
   renderMinimap();
-  biomeEl.textContent = TILES[tileAt(player.x, player.y)].name;
+  biomeEl.textContent = BIOMES[tileAt(player.x, player.y)].name;
   coordsEl.textContent = `X ${Math.floor(player.x)} · Y ${Math.floor(player.y)}`;
 }
 
@@ -323,6 +524,6 @@ function frame(now) {
 
 generateMap(1337);
 Object.assign(player, findSpawn());
-buildMinimap();
+buildMapImage();
 resize();
 requestAnimationFrame(frame);
