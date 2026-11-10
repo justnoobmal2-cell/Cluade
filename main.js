@@ -54,18 +54,17 @@ function paint(w, h, fn) {
 }
 
 // ---------- sprites ----------
-// Tree seen from above: a blocky canopy that fits inside one tile, with a drop shadow.
-const treeTex = paint(TILE, TILE, (x, y) => {
-  const block = (x0, y0, size, cut) => {
-    const u = x - x0, v = y - y0;
-    if (u < 0 || v < 0 || u >= size || v >= size) return false;
-    const eu = Math.min(u, size - 1 - u), ev = Math.min(v, size - 1 - v);
-    return eu + ev >= cut;                              // trim the corners
-  };
-  if (block(4, 3, 4, 1)) return '#7cc76a';
-  if (block(2, 1, 9, 2)) return '#3f8f3c';
-  if (block(1, 1, 13, 3)) return '#245226';
-  if (block(3, 3, 13, 3)) return 'rgba(0,0,0,.25)';
+const TREE_W = 16, TREE_H = 24;
+
+// Conifer: three stacked tiers lit from the left, short trunk, soft shadow.
+const treeTex = paint(TREE_W, TREE_H, (x, y) => {
+  if (y >= 1 && y <= 18) {
+    const tier = Math.floor((y - 1) / 6), i = (y - 1) % 6;
+    const hw = Math.min(7, 1 + i + tier);
+    if (Math.abs(x - 7.5) <= hw) return x < 8 ? '#2f7a4f' : '#1f5a3a';
+  }
+  if (y >= 19 && y <= 22 && (x === 7 || x === 8)) return '#5d3f22';
+  if (Math.hypot((x - 7.5) / 5.5, (y - 22.5) / 1.5) <= 1) return 'rgba(0,0,0,.22)';
   return null;
 });
 
@@ -452,17 +451,19 @@ function render() {
     }
   }
 
-  // The player walks under the canopies; trees right around the player turn
-  // see-through so the player stays visible.
-  drawPlayer(ox, oy, t, p);
+  // Trees and the player, drawn top to bottom so nearer things overlap farther ones.
   const prow = Math.floor(player.y), pcol = Math.floor(player.x);
-  for (let y = y0; y <= y1; y++) {
+  const yEnd = Math.min(MAP_SIZE - 1, y1 + 1);
+  for (let y = y0; y <= yEnd; y++) {
+    if (y === prow) drawPlayer(ox, oy, t, p);
     const row = y * MAP_SIZE;
+    const nearRow = y === prow || y === prow + 1;
     for (let x = x0; x <= x1; x++) {
       if (!deco[row + x]) continue;
-      const hide = Math.abs(y - prow) <= 1 && Math.abs(x - pcol) <= 1;
-      if (hide) ctx.globalAlpha = 0.35;
-      ctx.drawImage(treeTex, ox + x * t, oy + y * t, t, t);
+      // Trees standing in front of the player turn see-through so the player stays visible.
+      const hide = nearRow && Math.abs(x - pcol) <= 1;
+      if (hide) ctx.globalAlpha = 0.4;
+      ctx.drawImage(treeTex, ox + x * t, oy + (y + 1) * t - TREE_H * p, TREE_W * p, TREE_H * p);
       if (hide) ctx.globalAlpha = 1;
     }
   }
